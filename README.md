@@ -14,7 +14,7 @@
 
 처음 한 번만 설정합니다. **사이트를 올리는 토큰과 여행 데이터를 저장하는 토큰은 별개**입니다.
 
-1. 데이터 저장 위치는 개인용 **`namyikim/namyikim-travel-data`**로 고정되어 있습니다. 사용자 이름·저장소 이름을 사이트에 입력할 필요가 없습니다. 이 저장소가 없다면 GitHub에서 `namyikim-travel-data`라는 이름으로 **비공개(Private)** 저장소를 만들고 README를 추가하세요.
+1. 데이터 저장 위치는 개인용 **`namyikim/travel-data`**로 고정되어 있습니다. 사용자 이름·저장소 이름을 사이트에 입력할 필요가 없습니다. 이 저장소가 없다면 GitHub에서 `travel-data`라는 이름으로 **비공개(Private)** 저장소를 만들고 README를 추가하세요.
 2. [Fine-grained token 설정](https://github.com/settings/personal-access-tokens/new)에서 데이터 저장소만 선택하고 **Contents → Read and write** 권한을 부여합니다. 만료일도 확인하세요.
 3. 사이트에서 **처음 방문했어요 · 연결 설정**을 열고 데이터용 토큰과 **8자 이상 비밀번호**만 입력합니다. 긴 구절 형태를 추천합니다. 비밀번호를 잊으면 암호화한 기록을 복구할 수 없습니다.
 4. 연결 설정에서 **연결 파일 내려받기**로 `connect.json`을 받습니다. 이 파일은 토큰과 저장소 이름을 비밀번호로 암호화한 파일입니다.
