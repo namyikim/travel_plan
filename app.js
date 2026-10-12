@@ -2,6 +2,7 @@
   'use strict';
   const C = TravelCore, K = TravelCrypto, S = TravelSync;
   const session = TravelSession.createSession();
+  const loginStore = TravelLogin.createLoginStore();
   const $ = id => document.getElementById(id);
   let encryptedConnection = null, selectedTrip = null, selectedDate = '', pending = false, draft = false, viewGeneration = 0;
   let saveMessage = '저장된 기록을 불러왔어요.';
@@ -30,6 +31,7 @@
     const url = URL.createObjectURL(blob), a = node('a'); a.href = url; a.download = filename;
     document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 30000);
   }
+  const money = (value, currency) => new Intl.NumberFormat('ko-KR', { style: 'currency', currency, currencyDisplay: 'code' }).format(value);
   function markChanged() { saveMessage = '아직 저장하지 않은 변경이 있어요.'; $('appError').textContent = ''; render(); }
   function render() {
     const state = session.snapshot();
@@ -57,6 +59,8 @@
     $('tripDestination').textContent = trip.destination;
     $('tripTitle').textContent = trip.title;
     $('tripMeta').textContent = `${trip.start} — ${trip.end}  ·  ${C.dayCount(trip.start, trip.end)}일  ·  ${trip.people}명`;
+    const costs = C.tripCosts(trip);
+    $('tripCosts').textContent = `여행 전체 금액  ·  ${money(costs.usdCents / 100, 'USD')}  +  ${money(costs.krw, 'KRW')}  ·  환율 미적용`;
     $('dayNumber').textContent = `DAY ${String(C.dayCount(trip.start, selectedDate)).padStart(2, '0')} / ${C.dayCount(trip.start, trip.end)}`;
     $('dayHeading').textContent = new Intl.DateTimeFormat('ko-KR', { month: 'long', day: 'numeric', weekday: 'short', timeZone: 'UTC' }).format(new Date(`${selectedDate}T00:00:00Z`));
     $('dayPicker').value = selectedDate; $('dayPicker').min = trip.start; $('dayPicker').max = trip.end;
@@ -71,6 +75,7 @@
       content.append(heading);
       if (event.transport) content.append(node('p', 'event-info', `이동  ·  ${event.transport}`));
       if (event.lodging) content.append(node('p', 'event-info', `숙소  ·  ${event.lodging}`));
+      if (event.usdCents !== null || event.krw !== null) content.append(node('p', 'event-cost', [event.usdCents === null ? '' : money(event.usdCents / 100, 'USD'), event.krw === null ? '' : money(event.krw, 'KRW')].filter(Boolean).join(' + ')));
       if (event.note) content.append(node('p', 'event-note', event.note));
       const links = node('div', 'event-links');
       links.append(link('지도에서 찾기 ↗', `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${trip.destination} ${event.place}`)}`));
@@ -93,6 +98,8 @@
     const trip = tripNow(); if (!trip) return;
     $('eventForm').reset(); $('eventFormError').textContent = ''; $('eventDialogTitle').textContent = event ? '일정 수정' : '일정 추가';
     for (const [field, key] of [['eventId','id'],['eventTime','time'],['eventPlace','place'],['eventTransport','transport'],['eventLodging','lodging'],['eventNote','note'],['eventUrl','url']]) $(field).value = event?.[key] || '';
+    $('eventUSD').value = event?.usdCents == null ? '' : (event.usdCents / 100).toFixed(2);
+    $('eventKRW').value = event?.krw ?? '';
     $('eventDate').value = event?.date || selectedDate; $('eventDate').min = trip.start; $('eventDate').max = trip.end;
     $('deleteEventBtn').hidden = !event; draft = false; $('eventDialog').showModal(); $('eventPlace').focus();
   }
@@ -103,20 +110,26 @@
     if (id === 'settingsDialog') $('passwordForm').reset();
   }
   function clearSensitiveDOM() {
-    for (const id of ['tripList','timeline','tripDestination','tripTitle','tripMeta','dayNumber','dayHeading','eventCount','connectedRepo','saveStatus','appError','settingsStatus','settingsError','tripFormError','eventFormError']) $(id).replaceChildren();
+    for (const id of ['tripList','timeline','tripDestination','tripTitle','tripMeta','tripCosts','dayNumber','dayHeading','eventCount','connectedRepo','saveStatus','appError','settingsStatus','settingsError','tripFormError','eventFormError']) $(id).replaceChildren();
     for (const id of ['tripForm','eventForm','setupForm','unlockForm','passwordForm']) $(id).reset();
     for (const dialog of document.querySelectorAll('dialog')) if (dialog.open) dialog.close();
     $('dayPicker').value = '';
     selectedTrip = null; selectedDate = ''; draft = false;
   }
-  function lock(disconnect = false) {
+  async function rememberLogin() {
+    try { await session.rememberLogin(loginStore); }
+    catch { $('appError').textContent = '로그인했지만 이 브라우저에서 로그인 유지 정보를 저장하지 못했어요. 다음 접속 때 다시 로그인해 주세요.'; }
+  }
+  function lock() {
     if (pending) return;
     const state = session.snapshot();
-    if ((state.dirty || draft) && !confirm('저장하지 않은 변경을 버리고 잠글까요?')) return;
-    if (state.accessPending && !confirm('다른 기기의 비밀번호 접속 등록이 완료되지 않았어요. 잠그면 최초 설정에서 토큰과 현재 비밀번호로 다시 연결할 수 있습니다. 잠글까요?')) return;
-    session.lock(true); clearSensitiveDOM();
-    if (disconnect) { encryptedConnection = null; $('configStatus').textContent = '이 기기 연결을 해제했어요. 다시 비밀번호를 입력하면 열 수 있어요.'; }
-    render(); $('unlockPassword').focus();
+    if ((state.dirty || draft) && !confirm('저장하지 않은 변경을 버리고 로그아웃할까요?')) return;
+    if (state.accessPending && !confirm('다른 기기의 접속 등록이 아직 완료되지 않았어요. 로그아웃할까요?')) return;
+    run('appError', async () => {
+      await loginStore.clear();
+      session.lock(true); clearSensitiveDOM();
+      $('configStatus').textContent = '로그아웃했어요. 비밀번호를 입력해 로그인하세요.';
+    });
   }
   $('gate').addEventListener('cancel', event => event.preventDefault());
   $('unlockForm').addEventListener('submit', event => {
@@ -127,6 +140,7 @@
       const connection = S.validateConnection(await K.decryptJSON(encryptedConnection, pass));
       check();
       await session.open(connection, pass); $('unlockForm').reset(); saveMessage = '저장된 기록을 불러왔어요.';
+      await rememberLogin();
     });
   });
   $('setupForm').addEventListener('submit', event => {
@@ -135,6 +149,7 @@
       if (pass !== $('setupConfirm').value) throw new Error('비밀번호 확인이 일치하지 않습니다.');
       const connection = S.personalConnection($('setupToken').value);
       await session.open(connection, pass); $('setupForm').reset();
+      await rememberLogin();
       encryptedConnection = await session.enablePasswordAccess();
       $('setupDetails').hidden = true; $('setupDetails').open = false;
       saveMessage = '설정 완료! 다른 기기에서도 같은 비밀번호로 열 수 있어요.';
@@ -154,7 +169,7 @@
   $('eventForm').addEventListener('submit', event => {
     event.preventDefault(); if (pending) return;
     try {
-      const input = { id: $('eventId').value || crypto.randomUUID(), date: $('eventDate').value, time: $('eventTime').value, place: $('eventPlace').value, transport: $('eventTransport').value, lodging: $('eventLodging').value, note: $('eventNote').value, url: $('eventUrl').value };
+      const input = { id: $('eventId').value || crypto.randomUUID(), date: $('eventDate').value, time: $('eventTime').value, place: $('eventPlace').value, transport: $('eventTransport').value, lodging: $('eventLodging').value, note: $('eventNote').value, url: $('eventUrl').value, usdCents: C.parseMoney($('eventUSD').value, 'USD'), krw: C.parseMoney($('eventKRW').value, 'KRW') };
       session.update(data => C.upsertEvent(data, selectedTrip, input));
       selectedDate = input.date; draft = false; $('eventDialog').close(); markChanged();
     } catch (error) { $('eventFormError').textContent = error.message; }
@@ -176,7 +191,10 @@
     event.preventDefault();
     if ($('nextPassword').value !== $('nextConfirm').value) { $('settingsError').textContent = '새 비밀번호 확인이 일치하지 않습니다.'; return; }
     if (!confirm('현재 기록을 저장하고 다른 기기의 접속 비밀번호도 함께 바꿀까요?')) return;
-    run('settingsError', async () => { await session.changePassword($('nextPassword').value); $('passwordForm').reset(); saveMessage = '새 비밀번호로 저장했어요.'; encryptedConnection = await session.enablePasswordAccess(); $('settingsStatus').textContent = '변경 완료! 다른 기기에서도 새 비밀번호로 열 수 있어요.'; });
+    run('settingsError', async () => { await session.changePassword($('nextPassword').value);
+      try { await loginStore.clear(); await session.rememberLogin(loginStore); }
+      catch { $('settingsError').textContent = '비밀번호는 변경됐지만 로그인 유지 갱신에 실패했어요. 다음 접속 때 새 비밀번호로 로그인해 주세요.'; }
+      $('passwordForm').reset(); saveMessage = '새 비밀번호로 저장했어요.'; encryptedConnection = await session.enablePasswordAccess(); $('settingsStatus').textContent = '변경 완료! 다른 기기에서도 새 비밀번호로 열 수 있어요.'; });
   });
   for (const el of document.querySelectorAll('[data-close]')) el.addEventListener('click', () => closeDialog(el.dataset.close));
   for (const id of ['tripDialog','eventDialog','settingsDialog']) $(id).addEventListener('cancel', event => { event.preventDefault(); closeDialog(id); });
@@ -184,13 +202,30 @@
   window.addEventListener('beforeunload', event => { if (session.snapshot().dirty || session.snapshot().accessPending || draft || pending) { event.preventDefault(); event.returnValue = ''; } });
   window.addEventListener('pagehide', () => { viewGeneration++; session.invalidate(); clearSensitiveDOM(); render(); });
   async function init() {
-    render(); setBusy(true);
-    try {
-      encryptedConnection = await S.readPublishedConnection();
+    render();
+    await run('gateError', async check => {
+      $('configStatus').textContent = '로그인 상태를 확인하고 있습니다.';
+      let saved;
+      try { saved = await loginStore.load(); }
+      catch { await loginStore.clear().catch(() => {}); }
+      check();
+      if (saved) {
+        try {
+          await session.open(saved.connection, saved.password); check();
+          saveMessage = '자동 로그인했어요. 최신 기록을 불러왔습니다.';
+          return;
+        } catch (error) {
+          check();
+          if (error.code !== 'NETWORK') await loginStore.clear().catch(() => {});
+          $('gateError').textContent = '자동 로그인하지 못했어요. 연결 상태를 확인하거나 비밀번호로 다시 로그인해 주세요.';
+        }
+      }
+      encryptedConnection = await S.readPublishedConnection(); check();
       if (!encryptedConnection) { $('configStatus').textContent = '아래에서 처음 한 번 비밀번호를 설정해 주세요.'; $('setupDetails').hidden = false; $('setupDetails').open = true; }
-      else $('configStatus').textContent = '비밀번호만 입력하면 어느 기기에서나 열 수 있어요.';
-    } catch (error) { $('configStatus').textContent = '연결 정보를 불러오지 못했어요. 인터넷 연결을 확인한 뒤 비밀번호를 입력해 다시 시도해 주세요.'; }
-    finally { setBusy(false); render(); $('unlockPassword').focus(); }
+      else $('configStatus').textContent = '로그인 상태는 이 브라우저에 유지됩니다. 공용 기기에서는 사용 후 로그아웃하세요.';
+    });
+    if (!session.snapshot().unlocked) $('unlockPassword').focus();
   }
+  window.addEventListener('pageshow', event => { if (event.persisted) init(); });
   init();
 })();

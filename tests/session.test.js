@@ -159,3 +159,22 @@ test('an old session cannot overwrite completed password rotation on another dev
   assert.deepEqual(await K.decryptJSON(remote.envelope, 'NewTrip2027'), C.emptyData());
   assert.equal(revision, 2);
 });
+
+test('remembered login follows password changes and cannot be saved after logout', async () => {
+ const saved = [];
+ let remote = { envelope: await K.encryptJSON(C.emptyData(), password), sha: 'one' };
+ const session = createSession({ readRemote: async () => remote, writeRemote: async (config, envelope) => { remote = { envelope, sha: 'two' }; return { sha: 'two' }; } });
+ const store = { save: async value => saved.push(structuredClone(value)) };
+ await session.open(connection, password);
+ await session.rememberLogin(store);
+ await session.changePassword('Changed2027');
+ await session.rememberLogin(store);
+ assert.equal(saved[0].password, password);
+ assert.equal(saved[1].password, 'Changed2027');
+ const other = createSession({ readRemote: async () => remote });
+ await other.open(saved[1].connection, saved[1].password);
+ assert.equal(other.snapshot().unlocked, true);
+ session.lock(true);
+ await assert.rejects(session.rememberLogin(store), /먼저/);
+ assert.equal(saved.length, 2);
+});

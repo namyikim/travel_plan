@@ -29,11 +29,31 @@
     unique(trip.events);
     return trip;
   }
+  function moneyUnits(value) {
+    if (value === undefined || value === null) return null;
+    if (!Number.isSafeInteger(value) || value < 0 || value > 999999999999) fail('금액을 올바른 범위로 입력해 주세요.');
+    return value;
+  }
+  function parseMoney(value, currency) {
+    if (!['USD', 'KRW'].includes(currency) || typeof value !== 'string') fail('통화와 금액을 확인해 주세요.');
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    if (!(currency === 'USD' ? /^\d+(?:\.\d{1,2})?$/ : /^\d+$/).test(trimmed)) fail('USD는 소수점 두 자리까지, 원화는 정수로 입력해 주세요.');
+    const [whole, fraction = ''] = trimmed.split('.');
+    return moneyUnits(currency === 'USD' ? Number(whole) * 100 + Number(fraction.padEnd(2, '0')) : Number(whole));
+  }
+  function tripCosts(trip) {
+    return trip.events.reduce((total, event) => {
+      total.usdCents += event.usdCents ?? 0; total.krw += event.krw ?? 0;
+      if (!Number.isSafeInteger(total.usdCents) || !Number.isSafeInteger(total.krw)) fail('금액 합계가 너무 큽니다.');
+      return total;
+    }, { usdCents: 0, krw: 0 });
+  }
   function validateEvent(raw, trip) {
     if (!raw || typeof raw !== 'object') fail('일정 정보를 확인해 주세요.');
     if (!validDate(raw.date) || raw.date < trip.start || raw.date > trip.end) fail('모든 일정 날짜는 여행 기간 안에 있어야 합니다.');
     if (typeof raw.time !== 'string' || (raw.time !== '' && !/^([01]\d|2[0-3]):[0-5]\d$/.test(raw.time))) fail('시간을 확인해 주세요.');
-    const event = { id: id(raw.id), date: raw.date, time: raw.time, place: text(raw.place, '일정·장소', 200, true), transport: text(raw.transport, '이동 정보', 500), lodging: text(raw.lodging, '숙소', 500), note: text(raw.note, '메모', 5000), url: text(raw.url, '참고 링크', 2000) };
+    const event = { id: id(raw.id), date: raw.date, time: raw.time, place: text(raw.place, '일정·장소', 200, true), transport: text(raw.transport, '이동 정보', 500), lodging: text(raw.lodging, '숙소', 500), note: text(raw.note, '메모', 5000), url: text(raw.url, '참고 링크', 2000), usdCents: moneyUnits(raw.usdCents), krw: moneyUnits(raw.krw) };
     if (event.url) {
       let url;
       try { url = new URL(event.url); } catch { fail('참고 링크는 https:// 또는 http://로 시작하는 주소를 입력해 주세요.'); }
@@ -85,5 +105,5 @@
     return new Date(Date.parse(`${date}T00:00:00Z`) + offset * 86400000).toISOString().slice(0, 10);
   }
   const dayCount = (start, end) => Math.round((Date.parse(`${end}T00:00:00Z`) - Date.parse(`${start}T00:00:00Z`)) / 86400000) + 1;
-  return { emptyData, validDate, validateTrip, validateEvent, validateData, upsertTrip, upsertEvent, removeTrip, removeEvent, shiftDate, dayCount };
+  return { parseMoney, tripCosts, emptyData, validDate, validateTrip, validateEvent, validateData, upsertTrip, upsertEvent, removeTrip, removeEvent, shiftDate, dayCount };
 }));

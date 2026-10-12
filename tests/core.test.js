@@ -44,3 +44,27 @@ test('day arithmetic uses date-only UTC across year and leap-day boundaries', ()
   assert.equal(C.shiftDate('2027-12-31', 1), '2028-01-01');
   assert.equal(C.dayCount(trip.start, trip.end), 15);
 });
+test('old records have blank costs; USD and KRW survive editing and serialize independently', () => {
+ assert.equal(C.validateEvent(event, trip).usdCents, null);
+ assert.equal(C.validateEvent(event, trip).krw, null);
+ const cost = { ...event, usdCents: C.parseMoney('123.45', 'USD'), krw: C.parseMoney('50000', 'KRW') };
+ let data = C.upsertEvent(C.upsertTrip(C.emptyData(), trip), trip.id, cost);
+ data = C.upsertTrip(JSON.parse(JSON.stringify(data)), { ...trip, title: '하와이' });
+ assert.equal(data.trips[0].events[0].usdCents, 12345);
+ assert.equal(data.trips[0].events[0].krw, 50000);
+ assert.deepEqual(C.tripCosts(data.trips[0]), { usdCents: 12345, krw: 50000 });
+});
+test('cost totals use integer cents and update after removal', () => {
+ let data = C.upsertTrip(C.emptyData(), trip);
+ for (const [i, usd] of ['0.10','0.20'].entries()) data = C.upsertEvent(data, trip.id, { ...event, id: `cost-${i}`, usdCents: C.parseMoney(usd, 'USD'), krw: 1000 });
+ assert.deepEqual(C.tripCosts(data.trips[0]), { usdCents: 30, krw: 2000 });
+ data = C.removeEvent(data, trip.id, 'cost-0');
+ assert.deepEqual(C.tripCosts(data.trips[0]), { usdCents: 20, krw: 1000 });
+});
+test('money validation permits blanks and zero but rejects negative, excess precision and unsafe amounts', () => {
+ assert.equal(C.parseMoney('', 'USD'), null);
+ assert.equal(C.parseMoney('0', 'KRW'), 0);
+ for (const value of ['-1','Infinity','1e4','1.001','10000000000']) assert.throws(() => C.parseMoney(value, 'USD'));
+ assert.throws(() => C.parseMoney('1.5', 'KRW'));
+ for (const usdCents of [-1, NaN, Infinity, 1.2, Number.MAX_SAFE_INTEGER]) assert.throws(() => C.validateEvent({ ...event, usdCents }, trip));
+});

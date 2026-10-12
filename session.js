@@ -59,6 +59,7 @@
       invalidate();
     }
     function invalidate() { generation++; data = null; connection = null; password = null; sha = null; dirty = false; accessPending = false; }
+    async function rememberLogin(store) { ready(); return work(() => store.save({ connection, password })); }
     async function connectionFile() { ready(); return work(() => K.encryptJSON(connection, password)); }
     async function backup() { ready(); return work(() => K.encryptJSON(data, password)); }
     async function changePassword(next) {
@@ -96,7 +97,7 @@
         return config;
       });
     }
-    return { snapshot, open, update, save, reload, lock, invalidate, connectionFile, backup, changePassword, enablePasswordAccess };
+    return { snapshot, open, update, save, reload, lock, invalidate, connectionFile, backup, changePassword, enablePasswordAccess, rememberLogin };
   }
   return { createSession };
 }));
