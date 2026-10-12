@@ -5,6 +5,17 @@
   const loginStore = TravelLogin.createLoginStore();
   const $ = id => document.getElementById(id);
   let encryptedConnection = null, selectedTrip = null, selectedDate = '', pending = false, draft = false, viewGeneration = 0;
+  let detailView = 'list';
+  const mapView = TravelMap.create({
+    isBusy: () => pending,
+    onEdit: event => openEvent(event),
+    onLocation: (eventId, location) => {
+      if (pending || !session.snapshot().unlocked) return;
+      const trip = tripNow(), event = trip?.events.find(item => item.id === eventId);
+      if (!event) return;
+      session.update(data => C.upsertEvent(data, trip.id, {...event, mapLocation:location})); markChanged();
+    }
+  });
   let calendarMonth = '', calendarTrip = '';
   let saveMessage = '저장된 기록을 불러왔어요.';
   const disabledBefore = new Map();
@@ -58,7 +69,7 @@
     const trip = trips.find(item => item.id === selectedTrip);
     document.body.classList.toggle('hawaii-theme', isHawaii(trip));
     $('noTrip').hidden = !!trip; $('tripDetail').hidden = !trip;
-    if (!trip) { $('timeline').replaceChildren(); return; }
+    if (!trip) { $('timeline').replaceChildren(); mapView.clear(); return; }
     if (!C.validDate(selectedDate) || selectedDate < trip.start || selectedDate > trip.end) selectedDate = trip.start;
     $('tripDestination').textContent = trip.destination;
     $('tripTitle').textContent = trip.title;
@@ -72,6 +83,7 @@
     $('prevDayBtn').disabled = pending || selectedDate === trip.start; $('nextDayBtn').disabled = pending || selectedDate === trip.end;
     const events = trip.events.filter(event => $('allEvents').checked || event.date === selectedDate).sort(C.compareEvents);
     $('eventCount').textContent = `${events.length}개의 일정 · 실제 시간순`;
+    renderDetailView(trip);
     $('timeline').replaceChildren();
     if (!events.length) { const empty = node('div', 'day-empty'); empty.append(node('p', '', '아직 비어 있는 하루예요.'), action('＋ 첫 일정 적기', 'small-btn', () => openEvent())); $('timeline').append(empty); }
     for (const event of events) {
@@ -88,6 +100,19 @@
       content.append(links); card.append(node('div', 'event-time', event.time || '자유'), content); $('timeline').append(card);
     }
   }
+  function renderDetailView(trip) {
+    const showingMap = detailView === 'map';
+    $('listPanel').hidden = showingMap; $('mapPanel').hidden = !showingMap;
+    for (const [id,active] of [['listTab',!showingMap],['mapTab',showingMap]]) { $(id).setAttribute('aria-selected',String(active)); $(id).tabIndex=active?0:-1; }
+    if(showingMap) { $('mapDateLabel').textContent=`${selectedDate} · 현지 날짜별 동선`; mapView.update(trip,selectedDate); }
+  }
+  function switchDetail(view) { if(pending)return; detailView=view; render(); }
+  $('listTab').addEventListener('click',()=>switchDetail('list'));
+  $('mapTab').addEventListener('click',()=>switchDetail('map'));
+  for(const id of ['listTab','mapTab']) $(id).addEventListener('keydown',event=>{
+    if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key)||pending)return;
+    event.preventDefault();const next=event.key==='Home'?'list':event.key==='End'?'map':detailView==='map'?'list':'map';switchDetail(next);$(next==='map'?'mapTab':'listTab').focus();
+  });
   function renderCalendar(trip) {
     if (calendarTrip !== trip.id || calendarMonth < trip.start.slice(0,7) || calendarMonth > trip.end.slice(0,7)) calendarMonth = trip.start.slice(0,7);
     calendarTrip = trip.id;
@@ -110,7 +135,7 @@
       if (!day.date) { const gap = node('div','calendar-gap'); gap.setAttribute('aria-hidden','true'); gap.style.gridColumn=String(column+1); gap.style.gridRow=`1 / ${week.lanes+3}`; weekNode.append(gap); continue; }
       const cell = action('', `calendar-day${day.date === selectedDate ? ' selected' : ''}`, () => {
         if (pending) return;
-        selectedDate = day.date; $('allEvents').checked = false; render(); $('dayDetails').scrollIntoView({behavior:'smooth',block:'start'}); $('newEventBtn').focus({preventScroll:true});
+        selectedDate = day.date; $('allEvents').checked = false; render(); $('dayDetails').scrollIntoView({behavior:'smooth',block:'start'}); $(detailView === 'map' ? 'mapAddEventBtn' : 'newEventBtn').focus({preventScroll:true});
       });
       cell.style.gridColumn=String(column+1); cell.style.gridRow=`1 / ${week.lanes+3}`;
       cell.disabled = pending || !day.inTrip;
@@ -174,6 +199,7 @@
     if (id === 'settingsDialog') $('passwordForm').reset();
   }
   function clearSensitiveDOM() {
+    mapView.clear(); detailView='list'; $('mapDateLabel').textContent='';
     for (const id of ['calendarGrid','stayList','calendarMonth','stayFormError','tripList','timeline','tripDestination','tripTitle','tripMeta','tripCosts','dayNumber','dayHeading','eventCount','connectedRepo','saveStatus','appError','settingsStatus','settingsError','tripFormError','eventFormError']) $(id).replaceChildren();
     for (const id of ['tripForm','eventForm','stayForm','setupForm','unlockForm','passwordForm']) $(id).reset();
     for (const dialog of document.querySelectorAll('dialog')) if (dialog.open) dialog.close();
@@ -223,6 +249,7 @@
   for (const id of ['newTripBtn','firstTripBtn']) $(id).addEventListener('click', () => openTrip());
   $('editTripBtn').addEventListener('click', () => openTrip(true));
   $('newEventBtn').addEventListener('click', () => openEvent());
+  $('mapAddEventBtn').addEventListener('click', () => openEvent());
   $('tripForm').addEventListener('submit', event => {
     event.preventDefault(); if (pending) return;
     try {
@@ -234,7 +261,8 @@
   $('eventForm').addEventListener('submit', event => {
     event.preventDefault(); if (pending) return;
     try {
-      const input = { id: $('eventId').value || crypto.randomUUID(), date: $('eventDate').value, time: $('eventTime').value, category: $('eventCategory').value, timeZone: $('eventTimeZone').value, timeOccurrence: $('eventTimeOccurrence').value, place: $('eventPlace').value, transport: $('eventTransport').value, lodging: $('eventLodging').value, note: $('eventNote').value, url: $('eventUrl').value, usdCents: C.parseMoney($('eventUSD').value, 'USD'), krw: C.parseMoney($('eventKRW').value, 'KRW') };
+      const previousEvent = tripNow()?.events.find(item => item.id === $('eventId').value);
+      const input = { mapLocation: previousEvent?.place === $('eventPlace').value.trim() ? previousEvent.mapLocation : null, id: $('eventId').value || crypto.randomUUID(), date: $('eventDate').value, time: $('eventTime').value, category: $('eventCategory').value, timeZone: $('eventTimeZone').value, timeOccurrence: $('eventTimeOccurrence').value, place: $('eventPlace').value, transport: $('eventTransport').value, lodging: $('eventLodging').value, note: $('eventNote').value, url: $('eventUrl').value, usdCents: C.parseMoney($('eventUSD').value, 'USD'), krw: C.parseMoney($('eventKRW').value, 'KRW') };
       session.update(data => C.upsertEvent(data, selectedTrip, input));
       selectedDate = input.date; calendarMonth = input.date.slice(0,7); draft = false; $('eventDialog').close(); markChanged();
     } catch (error) { $('eventFormError').textContent = error.message; }

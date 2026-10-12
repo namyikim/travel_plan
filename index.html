@@ -4,16 +4,19 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f2f6fc">
-  <meta name="referrer" content="no-referrer">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://api.github.com https://raw.githubusercontent.com; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https://tile.openstreetmap.org; connect-src 'self' https://api.github.com https://raw.githubusercontent.com https://nominatim.openstreetmap.org https://router.project-osrm.org; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
   <title>여행노트 · 나만의 여행 계획</title>
   <link rel="icon" href="favicon-blue.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="style.css?v=stay-bars-1">
+  <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+  <link rel="stylesheet" href="style.css?v=map-1">
   <script src="core.js" defer></script>
   <script src="crypto.js" defer></script>
   <script src="sync.js" defer></script>
   <script src="login.js" defer></script>
   <script src="session.js" defer></script>
+  <script src="vendor/leaflet/leaflet.js" defer></script>
+  <script src="map.js" defer></script>
   <script src="app.js" defer></script>
 </head>
 <body>
@@ -65,9 +68,19 @@
               <p class="hint">✈️ 비행기 &nbsp; 🏨 숙박 &nbsp; 🚗 차량 &nbsp; ⛴️ 배 &nbsp; 🍽️ 식사 &nbsp; 📍 관광<br>체류 지역은 위의 ‘지역·체류 기간’으로 등록하고, 등록한 지역을 누르면 수정할 수 있어요.</p>
             </section>
             <div id="dayDetails" class="day-toolbar"><div><p id="dayNumber" class="eyebrow"></p><h3 id="dayHeading"></h3></div><div class="day-controls"><button id="prevDayBtn" class="icon-btn" aria-label="이전 날짜">‹</button><label for="dayPicker" class="sr-only">일정 날짜</label><input id="dayPicker" type="date"><button id="nextDayBtn" class="icon-btn" aria-label="다음 날짜">›</button></div></div>
+            <div class="detail-tabs" role="tablist" aria-label="일정 보기 방식"><button id="listTab" role="tab" aria-selected="true" aria-controls="listPanel">일정</button><button id="mapTab" role="tab" aria-selected="false" aria-controls="mapPanel" tabindex="-1">지도에서 보기</button></div>
+            <section id="listPanel" role="tabpanel" aria-labelledby="listTab">
             <label class="timeline-toggle"><input id="allEvents" type="checkbox"> 전체 여행을 실제 시간순으로 보기</label><p class="hint">날짜별 화면은 입력한 현지 날짜 기준입니다. 날짜가 바뀌는 이동은 전체 보기로 확인하세요.</p>
             <div class="section-label"><p id="eventCount" class="muted"></p><button id="newEventBtn" class="small-btn">＋ 일정 추가</button></div>
             <div id="timeline" class="timeline"></div>
+            </section>
+            <section id="mapPanel" role="tabpanel" aria-labelledby="mapTab" hidden>
+              <div class="section-label"><p id="mapDateLabel" class="muted"></p><div class="actions"><button id="mapAddEventBtn" class="quiet">＋ 일정 추가</button><button id="fitMapBtn" class="quiet">전체 동선</button><button id="roadRouteBtn" class="secondary">자동차 경로</button></div></div>
+              <p id="mapStatus" class="hint" role="status"></p>
+              <div id="dayMap" aria-label="선택한 날짜의 동선 지도"></div>
+              <p class="hint">처음 한 번 장소를 검색해 정확한 위치를 선택하세요. 위치 선택 후 상단의 ‘변경 내용 저장’을 누르면 다음에도 표시됩니다. 검색이 안 되면 지도에서 직접 지정할 수 있어요.<br>선택한 날짜만 표시하며, 번호는 시차를 반영한 일정 순서입니다. 점선은 방문 순서, 청록색 실선은 자동차 도로 경로입니다. 장소 검색어는 OpenStreetMap, 경로 좌표는 OSRM에 전달됩니다.</p>
+              <div id="mapStops" class="map-stops"></div>
+            </section>
             <div class="day-tip"><span aria-hidden="true">✦</span> 장소, 이동 방법, 숙소와 예약 링크를 함께 적어두세요.</div>
           </section>
         </div>
