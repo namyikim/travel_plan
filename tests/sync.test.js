@@ -5,7 +5,7 @@ const connection = { repo: 'owner/travel-data', token: 'test-only-placeholder' }
 const response = (body, status = 200) => new Response(JSON.stringify(body), { status });
 const envelope = { ciphertext: 'encrypted-test' };
 test('personal setup chooses the fixed private repository without repository input', () => {
-  assert.deepEqual(S.personalConnection('test-placeholder'), { repo: 'namyikim/travel-data', token: 'test-placeholder' });
+  assert.deepEqual(S.personalConnection('test-placeholder'), { repo: 'namyikim/namyikim-travel-data', token: 'test-placeholder' });
   assert.throws(() => S.personalConnection(''));
 });
 test('read decryptable envelope and sha from private repository', async () => {

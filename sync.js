@@ -4,7 +4,7 @@
   else root.TravelSync = api;
 }(globalThis, () => {
   'use strict';
-  const PERSONAL_REPOSITORY = 'namyikim/travel-data';
+  const PERSONAL_REPOSITORY = 'namyikim/namyikim-travel-data';
   const personalConnection = token => validateConnection({ repo: PERSONAL_REPOSITORY, token });
   function error(code, message) { return Object.assign(new Error(message), { code }); }
   function validateConnection(raw) {
