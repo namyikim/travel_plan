@@ -12,6 +12,7 @@
   function node(tag, className, content) { const el = document.createElement(tag); if (className) el.className = className; if (content !== undefined) el.textContent = content; return el; }
   function action(label, className, listener) { const el = node('button', className, label); el.type = 'button'; el.addEventListener('click', listener); return el; }
   function link(label, href) { const el = node('a', '', label); el.href = href; el.target = '_blank'; el.rel = 'noopener noreferrer'; return el; }
+  const isHawaii = trip => !!trip && /하와이|오아후|오하우|마우이|마우시|카우아이|빅아일랜드|호놀룰루|와이키키|hawaii|oahu|maui|kauai|honolulu|waikiki/i.test([trip.title, trip.destination, ...(trip.stays || []).map(stay => stay.name)].join(' '));
   const tripNow = () => session.snapshot().data?.trips.find(trip => trip.id === selectedTrip);
   function setBusy(value) {
     pending = value; document.body.classList.toggle('busy', value); document.body.setAttribute('aria-busy', String(value));
@@ -39,7 +40,7 @@
     if (state.unlocked) { if ($('gate').open) $('gate').close(); }
     else if (!$('gate').open) $('gate').showModal();
     $('workspace').hidden = !state.unlocked;
-    if (!state.unlocked) return;
+    if (!state.unlocked) { document.body.classList.remove('hawaii-theme'); return; }
     $('connectedRepo').textContent = state.repo;
     $('saveStatus').textContent = state.accessPending ? '다른 기기 접속 등록이 아직 완료되지 않았어요. 연결 설정에서 다시 등록해 주세요.' : state.dirty ? '아직 저장하지 않은 변경이 있어요.' : saveMessage;
     $('saveBtn').disabled = pending;
@@ -49,11 +50,13 @@
     if (!trips.length) $('tripList').append(node('p', 'hint', '아직 등록한 여행이 없어요.'));
     for (const trip of trips) {
       const button = action('', `trip-card${trip.id === selectedTrip ? ' selected' : ''}`, () => { selectedTrip = trip.id; selectedDate = trip.start; render(); });
+      button.classList.toggle('hawaii-trip-card', isHawaii(trip));
       button.setAttribute('aria-pressed', String(trip.id === selectedTrip));
       button.append(node('span', 'trip-card-destination', trip.destination), node('strong', '', trip.title), node('span', '', `${trip.start} → ${trip.end}`));
       $('tripList').append(button);
     }
     const trip = trips.find(item => item.id === selectedTrip);
+    document.body.classList.toggle('hawaii-theme', isHawaii(trip));
     $('noTrip').hidden = !!trip; $('tripDetail').hidden = !trip;
     if (!trip) { $('timeline').replaceChildren(); return; }
     if (!C.validDate(selectedDate) || selectedDate < trip.start || selectedDate > trip.end) selectedDate = trip.start;
