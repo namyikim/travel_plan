@@ -26,3 +26,20 @@ test('icons infer existing flights and respect explicit category; invalid stay r
  for(const stay of [{id:'s',name:'',start:trip.start,end:trip.end},{id:'s',name:'섬',start:'2027-02-10',end:trip.end},{id:'s',name:'섬',start:trip.end,end:trip.start}])assert.throws(()=>C.upsertStay(data,'t',stay));
  assert.throws(()=>C.validateEvent({...event,category:'unknown'},trip));
 });
+test('consecutive same-place stays merge into one weekly bar without changing saved ranges',()=>{
+ const t=C.validateTrip({...trip,stays:[{id:'a',name:'마우이',start:'2027-02-15',end:'2027-02-16'},{id:'b',name:'마우이',start:'2027-02-17',end:'2027-02-19'}]});
+ const week=C.calendarWeeks(t,'2027-02').find(w=>w.days.some(d=>d.date==='2027-02-15'));
+ assert.equal(week.bars.length,1);assert.equal(week.bars[0].column,2);assert.equal(week.bars[0].span,5);assert.equal(t.stays.length,2);
+});
+test('week and month boundaries show continuation and overlapping locations occupy separate lanes',()=>{
+ const t=C.validateTrip({...trip,stays:[{id:'a',name:'오아후',start:'2027-02-11',end:'2027-02-18'},{id:'b',name:'마우이',start:'2027-02-18',end:'2027-03-02'}]});
+ const weeks=C.calendarWeeks(t,'2027-02');
+ const overlap=weeks.find(w=>w.days.some(d=>d.date==='2027-02-18'));
+ assert.equal(overlap.bars.length,2);assert.notEqual(overlap.bars[0].lane,overlap.bars[1].lane);
+ assert.equal(overlap.bars[0].continuesBefore,true);assert.equal(overlap.bars[1].continuesAfter,true);
+ const march=C.calendarWeeks(t,'2027-03')[0];assert.equal(march.bars[0].continuesBefore,true);assert.equal(march.bars[0].span,2);
+});
+test('same-place stays separated by a free day remain separate',()=>{
+ const t=C.validateTrip({...trip,stays:[{id:'a',name:'마우이',start:'2027-02-15',end:'2027-02-16'},{id:'b',name:'마우이',start:'2027-02-18',end:'2027-02-19'}]});
+ const week=C.calendarWeeks(t,'2027-02').find(w=>w.days.some(d=>d.date==='2027-02-15'));assert.equal(week.bars.length,2);
+});

@@ -102,17 +102,21 @@
       button.title = `${stay.name} · ${stay.start} ~ ${stay.end} · 수정`; button.disabled = pending; $('stayList').append(button);
     }
     $('calendarGrid').replaceChildren();
-    for (const day of C.calendarDays(trip, calendarMonth)) {
-      if (!day.date) { const gap = node('div','calendar-gap'); gap.setAttribute('aria-hidden','true'); $('calendarGrid').append(gap); continue; }
+    for (const week of C.calendarWeeks(trip, calendarMonth)) {
+      const weekNode=node('div','calendar-week');
+      weekNode.style.gridTemplateRows=`28px ${'26px '.repeat(week.lanes)}minmax(94px,auto)`;
+      weekNode.style.setProperty('--stay-space', `${28+week.lanes*26}px`);
+      for (const [column,day] of week.days.entries()) {
+      if (!day.date) { const gap = node('div','calendar-gap'); gap.setAttribute('aria-hidden','true'); gap.style.gridColumn=String(column+1); gap.style.gridRow=`1 / ${week.lanes+3}`; weekNode.append(gap); continue; }
       const cell = action('', `calendar-day${day.date === selectedDate ? ' selected' : ''}`, () => {
         if (pending) return;
         selectedDate = day.date; $('allEvents').checked = false; render(); $('dayDetails').scrollIntoView({behavior:'smooth',block:'start'}); $('newEventBtn').focus({preventScroll:true});
       });
+      cell.style.gridColumn=String(column+1); cell.style.gridRow=`1 / ${week.lanes+3}`;
       cell.disabled = pending || !day.inTrip;
       cell.setAttribute('aria-label', `${day.date} · ${day.stays.map(s=>s.name).join(', ')} · 일정 ${day.events.length}개`);
       if (day.date === selectedDate) cell.setAttribute('aria-current','date');
       cell.append(node('span','calendar-date',String(Number(day.date.slice(8)))));
-      for (const stay of day.stays) { const badge=node('span','calendar-stay',`🏝️ ${stay.name}`); badge.title=stay.name; cell.append(badge); }
       for (const event of day.events.slice(0,3)) {
         const category = C.categories[C.eventCategory(event)];
         const line = node('span',`calendar-event category-${C.eventCategory(event)}`,`${category[0]} ${event.place}`);
@@ -120,7 +124,15 @@
       }
       if (day.events.length>3) cell.append(node('span','calendar-more',`+${day.events.length-3}개 더 보기`));
       if (day.inTrip && !day.events.length && !day.stays.length) cell.append(node('span','calendar-empty','일정 추가'));
-      $('calendarGrid').append(cell);
+      weekNode.append(cell);
+      }
+      for (const bar of week.bars) {
+        const badge=node('div',`calendar-stay-bar${bar.continuesBefore ? ' continues-before' : ''}${bar.continuesAfter ? ' continues-after' : ''}`,`${bar.continuesBefore ? '‹ ' : ''}🏝️ ${bar.name}${bar.continuesAfter ? ' ›' : ''}`);
+        badge.style.gridColumn=`${bar.column} / span ${bar.span}`; badge.style.gridRow=String(bar.lane+2);
+        badge.title=`${bar.name} · ${bar.start} ~ ${bar.end}`; badge.setAttribute('aria-label',badge.title);
+        weekNode.append(badge);
+      }
+      $('calendarGrid').append(weekNode);
     }
   }
   function openStay(stay = null) {

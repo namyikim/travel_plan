@@ -71,6 +71,40 @@
     while(days.length%7) days.push({date:null});
     return days;
   }
+  function calendarWeeks(trip, month) {
+    const days = calendarDays(trip, month), byName = new Map();
+    for (const stay of trip.stays || []) {
+      const key = stay.name.normalize('NFKC').trim().toLowerCase();
+      if (!byName.has(key)) byName.set(key, []);
+      byName.get(key).push({...stay});
+    }
+    const ranges = [];
+    for (const group of byName.values()) {
+      group.sort((a,b)=>a.start.localeCompare(b.start));
+      let current;
+      for (const stay of group) {
+        if (current && Date.parse(`${stay.start}T00:00:00Z`) <= Date.parse(`${current.end}T00:00:00Z`)+86400000) {
+          if (stay.end > current.end) current.end = stay.end;
+        } else { current = {...stay}; ranges.push(current); }
+      }
+    }
+    ranges.sort((a,b)=>a.start.localeCompare(b.start) || a.name.localeCompare(b.name));
+    const weeks = [];
+    for (let offset=0; offset<days.length; offset+=7) {
+      const weekDays=days.slice(offset,offset+7), bars=[], laneEnds=[];
+      for (const range of ranges) {
+        const columns=weekDays.map((day,index)=>day.date && day.date>=range.start && day.date<=range.end ? index : -1).filter(index=>index>=0);
+        if (!columns.length) continue;
+        const start=columns[0], end=columns[columns.length-1];
+        let lane=laneEnds.findIndex(last=>last<start);
+        if(lane<0) lane=laneEnds.length;
+        laneEnds[lane]=end;
+        bars.push({name:range.name,start:range.start,end:range.end,column:start+1,span:end-start+1,lane,continuesBefore:range.start<weekDays[start].date,continuesAfter:range.end>weekDays[end].date});
+      }
+      weeks.push({days:weekDays,bars,lanes:laneEnds.length});
+    }
+    return weeks;
+  }
   const timeZones = {
     'Asia/Seoul': '한국', 'Pacific/Honolulu': '미국 · 하와이',
     'America/Los_Angeles': '미국 · 서부 (LA)', 'America/Denver': '미국 · 산악 (덴버)',
@@ -183,5 +217,5 @@
     return new Date(Date.parse(`${date}T00:00:00Z`) + offset * 86400000).toISOString().slice(0, 10);
   }
   const dayCount = (start, end) => Math.round((Date.parse(`${end}T00:00:00Z`) - Date.parse(`${start}T00:00:00Z`)) / 86400000) + 1;
-  return { categories, eventCategory, upsertStay, removeStay, calendarDays, timeZones, eventInstant, compareEvents, parseMoney, tripCosts, emptyData, validDate, validateTrip, validateEvent, validateData, upsertTrip, upsertEvent, removeTrip, removeEvent, shiftDate, dayCount };
+  return { categories, eventCategory, upsertStay, removeStay, calendarDays, calendarWeeks, timeZones, eventInstant, compareEvents, parseMoney, tripCosts, emptyData, validDate, validateTrip, validateEvent, validateData, upsertTrip, upsertEvent, removeTrip, removeEvent, shiftDate, dayCount };
 }));
