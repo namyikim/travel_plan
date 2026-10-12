@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#edf2ed">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://api.github.com; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>여행노트 · 나만의 여행 계획</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+  <script src="core.js" defer></script>
+  <script src="crypto.js" defer></script>
+  <script src="sync.js" defer></script>
+  <script src="session.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <header class="site-header"><a class="brand" href="./"><span class="brand-mark" aria-hidden="true">↗</span> 여행노트 <span class="brand-en">TRAVEL NOTE</span></a><span class="header-note">가고 싶은 곳, 함께하는 시간</span></header>
+  <main>
+    <section id="gate" class="gate">
+      <div class="gate-story">
+        <p class="eyebrow">YOUR NEXT CHAPTER</p>
+        <h1>다음 여행을,<br>한 장씩 채워요.</h1>
+        <p class="intro">설레는 출발부터 마지막 하루까지.<br>우리의 일정과 기억할 정보를 한곳에 모으세요.</p>
+        <div class="journey-art" aria-hidden="true"><span class="art-sun"></span><span class="art-mountain back"></span><span class="art-mountain front"></span><span class="art-road"></span><span class="art-pin">✦</span><span class="art-caption">MAKE ROOM FOR A LITTLE ADVENTURE</span></div>
+        <div class="story-foot"><span>01 &nbsp; 여행 만들기</span><span>02 &nbsp; 일정 채우기</span><span>03 &nbsp; 함께 떠나기</span></div>
+      </div>
+      <div class="unlock-card">
+        <span class="pill">PRIVATE TRAVEL JOURNAL</span>
+        <h2>내 여행 열기</h2>
+        <p class="muted">비밀번호를 입력하면 저장한 여행 계획을 볼 수 있어요.</p>
+        <form id="unlockForm">
+          <label for="unlockPassword">비밀번호</label>
+          <input id="unlockPassword" type="password" autocomplete="current-password" required minlength="16" maxlength="1024" placeholder="여행노트 비밀번호" aria-describedby="configStatus">
+          <button type="submit" class="primary wide">여행노트 열기 <span aria-hidden="true">↗</span></button>
+        </form>
+        <p id="configStatus" class="hint" role="status">연결 정보를 확인하고 있습니다.</p>
+        <p id="gateError" class="error" role="alert"></p>
+        <details id="fileDetails"><summary>연결 파일로 열기</summary><p class="hint">보관한 connect.json을 선택한 뒤 비밀번호를 입력하세요.</p><label class="file-label" for="connectionFile">암호화 연결 파일</label><input id="connectionFile" type="file" accept=".json,application/json"></details>
+        <details id="setupDetails"><summary>처음 방문했어요 · 연결 설정</summary>
+          <p class="hint">비공개 데이터 저장소를 한 번 연결하면 다른 기기에서도 같은 계획을 열 수 있어요. <a href="https://github.com/namyikim/travel_plan#처음-연결하기" target="_blank" rel="noopener noreferrer">설정 방법 보기 ↗</a></p>
+          <form id="setupForm">
+            <label for="setupRepo">비공개 저장소</label><input id="setupRepo" placeholder="사용자이름/travel-data" required autocomplete="off" autocapitalize="off" spellcheck="false">
+            <label for="setupToken">데이터 저장소용 GitHub 토큰</label><input id="setupToken" type="password" required autocomplete="off" placeholder="Contents 읽기·쓰기 권한">
+            <label for="setupPassword">여행 비밀번호 · 16자 이상</label><input id="setupPassword" type="password" minlength="16" maxlength="1024" required autocomplete="new-password">
+            <label for="setupConfirm">비밀번호 확인</label><input id="setupConfirm" type="password" minlength="16" maxlength="1024" required autocomplete="new-password">
+            <p class="hint">기존 기록이 있다면 사용하던 비밀번호를 입력하세요. 비밀번호를 잊으면 기록을 복구할 수 없어요.</p>
+            <button type="submit" class="primary wide">연결하고 시작하기</button>
+          </form>
+        </details>
+        <p class="security-note">◇ &nbsp; 비밀번호를 아는 사람만 여는 여행노트</p>
+      </div>
+    </section>
+
+    <section id="workspace" class="workspace" hidden>
+      <div class="workspace-heading"><div><p class="eyebrow">MY TRAVEL COLLECTION</p><h1>우리의 다음 여행</h1></div><div class="actions"><button id="settingsBtn" class="quiet">연결 설정</button><button id="lockBtn" class="quiet">잠그기</button></div></div>
+      <div class="save-bar"><p id="saveStatus" role="status">저장된 기록을 불러왔어요.</p><div class="actions"><button id="reloadBtn" class="quiet">새로 불러오기</button><button id="saveBtn" class="primary">변경 내용 저장</button></div></div>
+      <p id="appError" class="error" role="alert"></p>
+      <div class="planner-layout">
+        <aside class="trip-sidebar"><div class="section-label"><h2>나의 여행</h2><button id="newTripBtn" class="small-btn">＋ 새 여행</button></div><div id="tripList" class="trip-list"></div><p class="sidebar-note">여행의 시작은<br>작은 계획 하나에서.</p></aside>
+        <div class="planner-main">
+          <section id="noTrip" class="empty-state"><span class="empty-symbol" aria-hidden="true">↗</span><h2>어디로 떠나볼까요?</h2><p>목적지와 날짜를 정하고<br>나만의 여행 계획을 채워보세요.</p><button id="firstTripBtn" class="primary">첫 여행 만들기</button></section>
+          <section id="tripDetail" hidden>
+            <div class="trip-hero"><div><p id="tripDestination" class="eyebrow"></p><h2 id="tripTitle"></h2><p id="tripMeta"></p></div><button id="editTripBtn" class="glass-btn">여행 수정</button><span class="hero-decoration" aria-hidden="true">↗</span></div>
+            <div class="day-toolbar"><div><p id="dayNumber" class="eyebrow"></p><h3 id="dayHeading"></h3></div><div class="day-controls"><button id="prevDayBtn" class="icon-btn" aria-label="이전 날짜">‹</button><label for="dayPicker" class="sr-only">일정 날짜</label><input id="dayPicker" type="date"><button id="nextDayBtn" class="icon-btn" aria-label="다음 날짜">›</button></div></div>
+            <div class="section-label"><p id="eventCount" class="muted"></p><button id="newEventBtn" class="small-btn">＋ 일정 추가</button></div>
+            <div id="timeline" class="timeline"></div>
+            <div class="day-tip"><span aria-hidden="true">✦</span> 장소, 이동 방법, 숙소와 예약 링크를 함께 적어두세요.</div>
+          </section>
+        </div>
+      </div>
+    </section>
+  </main>
+  <footer class="site-footer"><span>여행노트 <span aria-hidden="true">·</span> 일상을 벗어나는 작은 계획</span><span>PLAN A LITTLE. EXPLORE A LOT.</span></footer>
+  <noscript><p class="error">여행노트를 사용하려면 브라우저의 JavaScript를 켜 주세요.</p></noscript>
+
+  <dialog id="tripDialog" aria-labelledby="tripDialogTitle"><form id="tripForm"><div class="dialog-head"><h2 id="tripDialogTitle">새 여행 만들기</h2><button type="button" data-close="tripDialog" class="icon-btn" aria-label="닫기">×</button></div><input id="tripId" type="hidden"><label for="tripName">여행명</label><input id="tripName" required maxlength="100" placeholder="예: 우리 가족의 여름휴가"><label for="destination">목적지</label><input id="destination" required maxlength="160" placeholder="예: 제주, 하와이"><div class="form-row"><div><label for="startDate">출발일</label><input id="startDate" type="date" min="1000-01-01" max="9999-12-31" required></div><div><label for="endDate">돌아오는 날</label><input id="endDate" type="date" min="1000-01-01" max="9999-12-31" required></div></div><label for="people">동행 인원 · 나를 포함</label><input id="people" type="number" min="1" max="999" step="1" required value="1"><p id="tripFormError" class="error" role="alert"></p><div class="dialog-foot"><button id="deleteTripBtn" type="button" class="danger" hidden>여행 삭제</button><button type="submit" class="primary">여행 반영</button></div><p class="hint">반영 후 화면 상단의 ‘변경 내용 저장’을 눌러 주세요.</p></form></dialog>
+  <dialog id="eventDialog" aria-labelledby="eventDialogTitle"><form id="eventForm"><div class="dialog-head"><h2 id="eventDialogTitle">일정 추가</h2><button type="button" data-close="eventDialog" class="icon-btn" aria-label="닫기">×</button></div><input id="eventId" type="hidden"><div class="form-row"><div><label for="eventDate">날짜</label><input id="eventDate" type="date" required></div><div><label for="eventTime">시간 · 선택</label><input id="eventTime" type="time"></div></div><label for="eventPlace">일정 · 장소</label><input id="eventPlace" required maxlength="200" placeholder="예: 바다를 보며 아침 산책"><label for="eventTransport">이동 방법 · 선택</label><input id="eventTransport" maxlength="500" placeholder="예: 렌터카 30분, 주차장 위치"><label for="eventLodging">숙소 · 선택</label><input id="eventLodging" maxlength="500" placeholder="숙소 이름, 체크인 시간"><label for="eventUrl">지도 · 예약 · 참고 링크 · 선택</label><input id="eventUrl" type="url" maxlength="2000" placeholder="https://"><label for="eventNote">메모 · 선택</label><textarea id="eventNote" rows="4" maxlength="5000" placeholder="예약 정보, 준비물, 꼭 기억할 것"></textarea><p id="eventFormError" class="error" role="alert"></p><div class="dialog-foot"><button id="deleteEventBtn" type="button" class="danger" hidden>일정 삭제</button><button type="submit" class="primary">일정 반영</button></div></form></dialog>
+  <dialog id="settingsDialog" aria-labelledby="settingsTitle"><div class="dialog-head"><h2 id="settingsTitle">연결 설정</h2><button type="button" data-close="settingsDialog" class="icon-btn" aria-label="닫기">×</button></div><p class="muted">연결된 비공개 저장소</p><p id="connectedRepo" class="repo-name"></p><div class="settings-section"><h3>다른 기기에서도 열기</h3><p class="hint">연결 파일을 내려받아 보관하세요. 사이트 코드 저장소의 루트에 <strong>connect.json</strong>으로 업로드하면 비밀번호만으로 열 수 있어요. 파일 선택으로도 연결할 수 있어요.</p><button id="downloadConnectionBtn" class="secondary">연결 파일 내려받기</button></div><div class="settings-section"><h3>안전하게 보관하기</h3><p class="hint">현재 화면의 기록을 비밀번호로 암호화한 백업입니다. 복구 시 비공개 저장소의 travel-data.json을 이 파일로 교체하세요.</p><button id="downloadBackupBtn" class="secondary">암호화 백업 내려받기</button></div><div class="settings-section"><h3>비밀번호 변경</h3><p class="hint">변경 시 현재 기록도 저장됩니다. 새 연결 파일을 보관하고 사이트의 connect.json을 교체해야 합니다. 다른 기기는 새 비밀번호와 연결 파일이 필요해요. 과거 Git 기록의 암호문은 남습니다.</p><form id="passwordForm"><label for="nextPassword">새 비밀번호 · 16자 이상</label><input id="nextPassword" type="password" required minlength="16" maxlength="1024" autocomplete="new-password"><label for="nextConfirm">새 비밀번호 확인</label><input id="nextConfirm" type="password" required minlength="16" maxlength="1024" autocomplete="new-password"><button type="submit" class="secondary">비밀번호 변경하고 연결 파일 받기</button></form></div><p id="settingsStatus" class="hint" role="status"></p><p id="settingsError" class="error" role="alert"></p><button id="disconnectBtn" class="danger">이 기기 연결 해제</button></dialog>
+</body>
+</html>
