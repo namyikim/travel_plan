@@ -29,6 +29,39 @@
     unique(trip.events);
     return trip;
   }
+  const timeZones = {
+    'Asia/Seoul': '한국', 'Pacific/Honolulu': '미국 · 하와이',
+    'America/Los_Angeles': '미국 · 서부 (LA)', 'America/Denver': '미국 · 산악 (덴버)',
+    'America/Chicago': '미국 · 중부 (시카고)', 'America/New_York': '미국 · 동부 (뉴욕)',
+    'America/Anchorage': '미국 · 알래스카', 'America/Phoenix': '미국 · 애리조나 (피닉스)'
+  };
+  const formatters = new Map(), instants = new Map();
+  function eventInstant(event) {
+    const zone = event.timeZone ?? 'Asia/Seoul';
+    if (!Object.hasOwn(timeZones, zone)) fail('시간대를 선택해 주세요.');
+    if (!validDate(event.date) || typeof event.time !== 'string' || (event.time && !/^([01]\d|2[0-3]):[0-5]\d$/.test(event.time))) fail('날짜와 시간을 확인해 주세요.');
+    if (!event.time) return Infinity;
+    const cacheKey = `${event.date}T${event.time}|${zone}`;
+    if (event.timeOccurrence !== 'later' && instants.has(cacheKey)) return instants.get(cacheKey);
+    if (!formatters.has(zone)) formatters.set(zone, new Intl.DateTimeFormat('en-GB', { timeZone: zone, year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit', hourCycle:'h23' }));
+    const localStamp = instant => {
+      const parts = Object.fromEntries(formatters.get(zone).formatToParts(instant).map(p => [p.type,p.value]));
+      return Date.parse(`${parts.year.padStart(4,'0')}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}Z`);
+    };
+    const target = Date.parse(`${event.date}T${event.time}:00Z`), offsets = new Set();
+    for (const hours of [-36,0,36]) { const sample = target + hours * 3600000; offsets.add(localStamp(sample) - sample); }
+    const candidates = [...offsets].map(offset => target - offset).filter(instant => localStamp(instant) === target);
+    if (!candidates.length) fail('서머타임 전환으로 존재하지 않는 현지 시간입니다. 시간을 확인해 주세요.');
+    // Repeated fall-back times use the first occurrence, unless explicitly selected otherwise.
+    const instant = event.timeOccurrence === 'later' ? Math.max(...candidates) : Math.min(...candidates);
+    if (event.timeOccurrence !== 'later') { if (instants.size > 5000) instants.clear(); instants.set(cacheKey, instant); }
+    return instant;
+  }
+  function compareEvents(a,b) {
+    const left = eventInstant(a), right = eventInstant(b);
+    if (left !== right) return left < right ? -1 : 1;
+    return a.date.localeCompare(b.date) || a.time.localeCompare(b.time) || a.id.localeCompare(b.id);
+  }
   function moneyUnits(value) {
     if (value === undefined || value === null) return null;
     if (!Number.isSafeInteger(value) || value < 0 || value > 999999999999) fail('금액을 올바른 범위로 입력해 주세요.');
@@ -53,7 +86,9 @@
     if (!raw || typeof raw !== 'object') fail('일정 정보를 확인해 주세요.');
     if (!validDate(raw.date) || raw.date < trip.start || raw.date > trip.end) fail('모든 일정 날짜는 여행 기간 안에 있어야 합니다.');
     if (typeof raw.time !== 'string' || (raw.time !== '' && !/^([01]\d|2[0-3]):[0-5]\d$/.test(raw.time))) fail('시간을 확인해 주세요.');
-    const event = { id: id(raw.id), date: raw.date, time: raw.time, place: text(raw.place, '일정·장소', 200, true), transport: text(raw.transport, '이동 정보', 500), lodging: text(raw.lodging, '숙소', 500), note: text(raw.note, '메모', 5000), url: text(raw.url, '참고 링크', 2000), usdCents: moneyUnits(raw.usdCents), krw: moneyUnits(raw.krw) };
+    const event = { id: id(raw.id), date: raw.date, time: raw.time, place: text(raw.place, '일정·장소', 200, true), transport: text(raw.transport, '이동 정보', 500), lodging: text(raw.lodging, '숙소', 500), note: text(raw.note, '메모', 5000), url: text(raw.url, '참고 링크', 2000), timeZone: raw.timeZone ?? 'Asia/Seoul', timeOccurrence: raw.timeOccurrence ?? 'earlier', usdCents: moneyUnits(raw.usdCents), krw: moneyUnits(raw.krw) };
+    if (!['earlier','later'].includes(event.timeOccurrence)) fail('중복 시간 기준을 확인해 주세요.');
+    eventInstant(event);
     if (event.url) {
       let url;
       try { url = new URL(event.url); } catch { fail('참고 링크는 https:// 또는 http://로 시작하는 주소를 입력해 주세요.'); }
@@ -105,5 +140,5 @@
     return new Date(Date.parse(`${date}T00:00:00Z`) + offset * 86400000).toISOString().slice(0, 10);
   }
   const dayCount = (start, end) => Math.round((Date.parse(`${end}T00:00:00Z`) - Date.parse(`${start}T00:00:00Z`)) / 86400000) + 1;
-  return { parseMoney, tripCosts, emptyData, validDate, validateTrip, validateEvent, validateData, upsertTrip, upsertEvent, removeTrip, removeEvent, shiftDate, dayCount };
+  return { timeZones, eventInstant, compareEvents, parseMoney, tripCosts, emptyData, validDate, validateTrip, validateEvent, validateData, upsertTrip, upsertEvent, removeTrip, removeEvent, shiftDate, dayCount };
 }));

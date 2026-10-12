@@ -68,3 +68,27 @@ test('money validation permits blanks and zero but rejects negative, excess prec
  assert.throws(() => C.parseMoney('1.5', 'KRW'));
  for (const usdCents of [-1, NaN, Infinity, 1.2, Number.MAX_SAFE_INTEGER]) assert.throws(() => C.validateEvent({ ...event, usdCents }, trip));
 });
+test('Korea departure precedes Hawaii arrival despite reversed local clock times', () => {
+ const depart = { ...event, id:'depart', date:'2027-02-11', time:'22:00', timeZone:'Asia/Seoul' };
+ const arrive = { ...event, id:'arrive', date:'2027-02-11', time:'10:00', timeZone:'Pacific/Honolulu' };
+ assert.equal(C.eventInstant(depart), Date.parse('2027-02-11T13:00:00Z'));
+ assert.equal(C.eventInstant(arrive), Date.parse('2027-02-11T20:00:00Z'));
+ assert.deepEqual([arrive,depart].sort(C.compareEvents).map(e=>e.id), ['depart','arrive']);
+ assert.equal(C.validateEvent(event,trip).timeZone, 'Asia/Seoul');
+});
+test('US daylight saving and invalid local times are handled using the selected region', () => {
+ const west = { ...event, date:'2027-07-11', time:'10:00', timeZone:'America/Los_Angeles' };
+ assert.equal(C.eventInstant(west), Date.parse('2027-07-11T17:00:00Z'));
+ assert.equal(C.eventInstant({...west,date:'2027-02-11'}), Date.parse('2027-02-11T18:00:00Z'));
+ assert.throws(()=>C.eventInstant({...west,date:'2027-03-14',time:'02:30'}), /존재하지/);
+ assert.equal(C.eventInstant({...west,date:'2027-11-07',time:'01:30'}), Date.parse('2027-11-07T08:30:00Z'));
+ assert.equal(C.eventInstant({...west,date:'2027-11-07',time:'01:30',timeOccurrence:'later'}), Date.parse('2027-11-07T09:30:00Z'));
+ assert.throws(()=>C.validateEvent({...event,timeZone:'Invalid/Zone'},trip));
+});
+test('all-date ordering uses instants, undated times sort last, and time zones survive edits', () => {
+ const a={...event,id:'a',date:'2027-02-12',time:'01:00',timeZone:'Asia/Seoul'};
+ const b={...event,id:'b',date:'2027-02-11',time:'10:00',timeZone:'Pacific/Honolulu'};
+ assert.deepEqual([b,{...event,id:'c',time:''},a].sort(C.compareEvents).map(e=>e.id),['a','b','c']);
+ const data=C.upsertEvent(C.upsertTrip(C.emptyData(),trip),trip.id,b);
+ assert.equal(C.upsertTrip(data,{...trip,title:'새 여행'}).trips[0].events[0].timeZone,'Pacific/Honolulu');
+});

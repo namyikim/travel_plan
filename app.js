@@ -14,7 +14,7 @@
   const tripNow = () => session.snapshot().data?.trips.find(trip => trip.id === selectedTrip);
   function setBusy(value) {
     pending = value; document.body.classList.toggle('busy', value); document.body.setAttribute('aria-busy', String(value));
-    if (value) { for (const el of document.querySelectorAll('button,input,textarea')) { disabledBefore.set(el, el.disabled); el.disabled = true; } }
+    if (value) { for (const el of document.querySelectorAll('button,input,textarea,select')) { disabledBefore.set(el, el.disabled); el.disabled = true; } }
     else { for (const [el, disabled] of disabledBefore) el.disabled = disabled; disabledBefore.clear(); }
   }
   async function run(errorId, operation) {
@@ -65,14 +65,14 @@
     $('dayHeading').textContent = new Intl.DateTimeFormat('ko-KR', { month: 'long', day: 'numeric', weekday: 'short', timeZone: 'UTC' }).format(new Date(`${selectedDate}T00:00:00Z`));
     $('dayPicker').value = selectedDate; $('dayPicker').min = trip.start; $('dayPicker').max = trip.end;
     $('prevDayBtn').disabled = pending || selectedDate === trip.start; $('nextDayBtn').disabled = pending || selectedDate === trip.end;
-    const events = trip.events.filter(event => event.date === selectedDate).sort((a, b) => (a.time || '99:99').localeCompare(b.time || '99:99'));
-    $('eventCount').textContent = `${events.length}개의 일정`;
+    const events = trip.events.filter(event => $('allEvents').checked || event.date === selectedDate).sort(C.compareEvents);
+    $('eventCount').textContent = `${events.length}개의 일정 · 실제 시간순`;
     $('timeline').replaceChildren();
     if (!events.length) { const empty = node('div', 'day-empty'); empty.append(node('p', '', '아직 비어 있는 하루예요.'), action('＋ 첫 일정 적기', 'small-btn', () => openEvent())); $('timeline').append(empty); }
     for (const event of events) {
       const card = node('article', 'event-card'), content = node('div', 'event-content'), heading = node('div', 'event-heading');
       heading.append(node('h4', '', event.place), action('수정', 'quiet', () => openEvent(event)));
-      content.append(heading);
+      content.append(heading, node('p', 'event-zone', `${event.date} · ${C.timeZones[event.timeZone]}${event.timeOccurrence === 'later' ? ' · 중복 시간 두 번째' : ''}`));
       if (event.transport) content.append(node('p', 'event-info', `이동  ·  ${event.transport}`));
       if (event.lodging) content.append(node('p', 'event-info', `숙소  ·  ${event.lodging}`));
       if (event.usdCents !== null || event.krw !== null) content.append(node('p', 'event-cost', [event.usdCents === null ? '' : money(event.usdCents / 100, 'USD'), event.krw === null ? '' : money(event.krw, 'KRW')].filter(Boolean).join(' + ')));
@@ -98,6 +98,8 @@
     const trip = tripNow(); if (!trip) return;
     $('eventForm').reset(); $('eventFormError').textContent = ''; $('eventDialogTitle').textContent = event ? '일정 수정' : '일정 추가';
     for (const [field, key] of [['eventId','id'],['eventTime','time'],['eventPlace','place'],['eventTransport','transport'],['eventLodging','lodging'],['eventNote','note'],['eventUrl','url']]) $(field).value = event?.[key] || '';
+    $('eventTimeZone').value = event?.timeZone || 'Asia/Seoul';
+    $('eventTimeOccurrence').value = event?.timeOccurrence || 'earlier';
     $('eventUSD').value = event?.usdCents == null ? '' : (event.usdCents / 100).toFixed(2);
     $('eventKRW').value = event?.krw ?? '';
     $('eventDate').value = event?.date || selectedDate; $('eventDate').min = trip.start; $('eventDate').max = trip.end;
@@ -114,6 +116,7 @@
     for (const id of ['tripForm','eventForm','setupForm','unlockForm','passwordForm']) $(id).reset();
     for (const dialog of document.querySelectorAll('dialog')) if (dialog.open) dialog.close();
     $('dayPicker').value = '';
+    $('allEvents').checked = false;
     selectedTrip = null; selectedDate = ''; draft = false;
   }
   async function rememberLogin() {
@@ -169,7 +172,7 @@
   $('eventForm').addEventListener('submit', event => {
     event.preventDefault(); if (pending) return;
     try {
-      const input = { id: $('eventId').value || crypto.randomUUID(), date: $('eventDate').value, time: $('eventTime').value, place: $('eventPlace').value, transport: $('eventTransport').value, lodging: $('eventLodging').value, note: $('eventNote').value, url: $('eventUrl').value, usdCents: C.parseMoney($('eventUSD').value, 'USD'), krw: C.parseMoney($('eventKRW').value, 'KRW') };
+      const input = { id: $('eventId').value || crypto.randomUUID(), date: $('eventDate').value, time: $('eventTime').value, timeZone: $('eventTimeZone').value, timeOccurrence: $('eventTimeOccurrence').value, place: $('eventPlace').value, transport: $('eventTransport').value, lodging: $('eventLodging').value, note: $('eventNote').value, url: $('eventUrl').value, usdCents: C.parseMoney($('eventUSD').value, 'USD'), krw: C.parseMoney($('eventKRW').value, 'KRW') };
       session.update(data => C.upsertEvent(data, selectedTrip, input));
       selectedDate = input.date; draft = false; $('eventDialog').close(); markChanged();
     } catch (error) { $('eventFormError').textContent = error.message; }
@@ -177,6 +180,7 @@
   $('deleteTripBtn').addEventListener('click', () => { if (!pending && confirm('이 여행과 모든 일정을 삭제할까요? 저장하면 다른 기기에도 반영됩니다.')) { session.update(data => C.removeTrip(data, $('tripId').value)); draft = false; $('tripDialog').close(); markChanged(); } });
   $('deleteEventBtn').addEventListener('click', () => { if (!pending && confirm('이 일정을 삭제할까요?')) { session.update(data => C.removeEvent(data, selectedTrip, $('eventId').value)); draft = false; $('eventDialog').close(); markChanged(); } });
   for (const [id, offset] of [['prevDayBtn',-1],['nextDayBtn',1]]) $(id).addEventListener('click', () => { if (!pending) { selectedDate = C.shiftDate(selectedDate, offset); render(); } });
+  $('allEvents').addEventListener('change', render);
   $('dayPicker').addEventListener('change', () => { if (!pending) { selectedDate = $('dayPicker').value; render(); } });
   $('saveBtn').addEventListener('click', () => run('appError', async () => { $('saveStatus').textContent = '암호화하여 저장하고 있어요…'; await session.save(); saveMessage = `저장 완료 · ${new Intl.DateTimeFormat('ko-KR', { hour: '2-digit', minute: '2-digit' }).format(new Date())}`; }));
   $('reloadBtn').addEventListener('click', () => {
@@ -227,5 +231,6 @@
     if (!session.snapshot().unlocked) $('unlockPassword').focus();
   }
   window.addEventListener('pageshow', event => { if (event.persisted) init(); });
+  for (const [value, label] of Object.entries(C.timeZones)) { const option = node('option', '', label); option.value = value; $('eventTimeZone').append(option); }
   init();
 })();
