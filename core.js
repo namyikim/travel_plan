@@ -27,7 +27,49 @@
     if (!Array.isArray(raw.events)) fail('일정 목록을 확인해 주세요.');
     trip.events = raw.events.map(event => validateEvent(event, trip));
     unique(trip.events);
+    if (raw.stays !== undefined && !Array.isArray(raw.stays)) fail('체류 지역 목록을 확인해 주세요.');
+    trip.stays = (raw.stays || []).map(stay => validateStay(stay, trip));
+    unique(trip.stays);
     return trip;
+  }
+  const categories = { flight: ['✈️','비행기'], stay: ['🏨','숙박'], drive: ['🚗','차량 이동'], ferry: ['⛴️','배 이동'], food: ['🍽️','식사'], sight: ['📍','관광'], other: ['🗓️','기타'] };
+  function eventCategory(event) {
+    if (event.category && event.category !== 'auto') return event.category;
+    const label = `${event.place} ${event.transport}`;
+    if (/비행|항공|공항|flight|airport|✈/i.test(label)) return 'flight';
+    if (/페리|여객선|ferry|크루즈/i.test(label)) return 'ferry';
+    if (/렌터카|렌트카|택시|드라이브|운전|rental car|taxi/i.test(label)) return 'drive';
+    if (/식사|맛집|점심|저녁|조식|식당|restaurant|lunch|dinner/i.test(label)) return 'food';
+    if (/체크인|체크아웃|호텔|숙소|hotel|check.?in|check.?out/i.test(label)) return 'stay';
+    return 'sight';
+  }
+  function validateStay(raw, trip) {
+    if (!raw || typeof raw !== 'object') fail('체류 지역을 확인해 주세요.');
+    const stay = { id: id(raw.id), name: text(raw.name, '체류 지역', 60, true), start: raw.start, end: raw.end };
+    if (!validDate(stay.start) || !validDate(stay.end) || stay.start > stay.end || stay.start < trip.start || stay.end > trip.end) fail('체류 기간은 여행 기간 안에서 시작일·종료일 순으로 입력해 주세요.');
+    return stay;
+  }
+  function upsertStay(raw, tripId, input) {
+    const data = validateData(raw), trip = findTrip(data, tripId), stay = validateStay(input, trip);
+    const index = trip.stays.findIndex(item => item.id === stay.id);
+    if (index < 0) trip.stays.push(stay); else trip.stays[index] = stay;
+    return data;
+  }
+  function removeStay(raw, tripId, stayId) {
+    const data = validateData(raw), trip = findTrip(data, tripId);
+    trip.stays = trip.stays.filter(stay => stay.id !== stayId); return data;
+  }
+  function calendarDays(trip, month) {
+    if (typeof month !== 'string' || !validDate(`${month}-01`)) fail('달력의 월을 확인해 주세요.');
+    const first = `${month}-01`, start = new Date(`${first}T00:00:00Z`);
+    const length = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth()+1, 0)).getUTCDate();
+    const days = Array.from({length:start.getUTCDay()}, () => ({date:null}));
+    for (let day=1; day<=length; day++) {
+      const date = `${month}-${String(day).padStart(2,'0')}`;
+      days.push({date, inTrip:date>=trip.start && date<=trip.end, stays:(trip.stays || []).filter(stay=>stay.start<=date && stay.end>=date), events:trip.events.filter(event=>event.date===date).sort(compareEvents)});
+    }
+    while(days.length%7) days.push({date:null});
+    return days;
   }
   const timeZones = {
     'Asia/Seoul': '한국', 'Pacific/Honolulu': '미국 · 하와이',
@@ -86,8 +128,9 @@
     if (!raw || typeof raw !== 'object') fail('일정 정보를 확인해 주세요.');
     if (!validDate(raw.date) || raw.date < trip.start || raw.date > trip.end) fail('모든 일정 날짜는 여행 기간 안에 있어야 합니다.');
     if (typeof raw.time !== 'string' || (raw.time !== '' && !/^([01]\d|2[0-3]):[0-5]\d$/.test(raw.time))) fail('시간을 확인해 주세요.');
-    const event = { id: id(raw.id), date: raw.date, time: raw.time, place: text(raw.place, '일정·장소', 200, true), transport: text(raw.transport, '이동 정보', 500), lodging: text(raw.lodging, '숙소', 500), note: text(raw.note, '메모', 5000), url: text(raw.url, '참고 링크', 2000), timeZone: raw.timeZone ?? 'Asia/Seoul', timeOccurrence: raw.timeOccurrence ?? 'earlier', usdCents: moneyUnits(raw.usdCents), krw: moneyUnits(raw.krw) };
+    const event = { id: id(raw.id), date: raw.date, time: raw.time, place: text(raw.place, '일정·장소', 200, true), transport: text(raw.transport, '이동 정보', 500), lodging: text(raw.lodging, '숙소', 500), note: text(raw.note, '메모', 5000), url: text(raw.url, '참고 링크', 2000), category: raw.category ?? 'auto', timeZone: raw.timeZone ?? 'Asia/Seoul', timeOccurrence: raw.timeOccurrence ?? 'earlier', usdCents: moneyUnits(raw.usdCents), krw: moneyUnits(raw.krw) };
     if (!['earlier','later'].includes(event.timeOccurrence)) fail('중복 시간 기준을 확인해 주세요.');
+    if (event.category !== 'auto' && !Object.hasOwn(categories, event.category)) fail('일정 아이콘을 선택해 주세요.');
     eventInstant(event);
     if (event.url) {
       let url;
@@ -114,7 +157,7 @@
   function upsertTrip(raw, input) {
     const data = validateData(raw);
     const index = data.trips.findIndex(trip => trip.id === input.id);
-    const trip = validateTrip({ ...input, events: index < 0 ? [] : data.trips[index].events });
+    const trip = validateTrip({ ...input, stays: index < 0 ? [] : data.trips[index].stays, events: index < 0 ? [] : data.trips[index].events });
     if (index < 0) data.trips.push(trip); else data.trips[index] = trip;
     return data;
   }
@@ -140,5 +183,5 @@
     return new Date(Date.parse(`${date}T00:00:00Z`) + offset * 86400000).toISOString().slice(0, 10);
   }
   const dayCount = (start, end) => Math.round((Date.parse(`${end}T00:00:00Z`) - Date.parse(`${start}T00:00:00Z`)) / 86400000) + 1;
-  return { timeZones, eventInstant, compareEvents, parseMoney, tripCosts, emptyData, validDate, validateTrip, validateEvent, validateData, upsertTrip, upsertEvent, removeTrip, removeEvent, shiftDate, dayCount };
+  return { categories, eventCategory, upsertStay, removeStay, calendarDays, timeZones, eventInstant, compareEvents, parseMoney, tripCosts, emptyData, validDate, validateTrip, validateEvent, validateData, upsertTrip, upsertEvent, removeTrip, removeEvent, shiftDate, dayCount };
 }));
