@@ -17,6 +17,7 @@
     }
   });
   let calendarMonth = '', calendarTrip = '';
+  let savingChanges = false;
   let saveMessage = '저장된 기록을 불러왔어요.';
   const disabledBefore = new Map();
   const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
@@ -45,7 +46,16 @@
     document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 30000);
   }
   const money = (value, currency) => new Intl.NumberFormat('ko-KR', { style: 'currency', currency, currencyDisplay: 'code' }).format(value);
-  function markChanged() { saveMessage = '아직 저장하지 않은 변경이 있어요.'; $('appError').textContent = ''; render(); }
+  function persistChanges() {
+    return run('appError', async () => {
+      savingChanges = true; render();
+      try {
+        await session.save();
+        saveMessage = `자동 저장 완료 · ${new Intl.DateTimeFormat('ko-KR', { hour:'2-digit', minute:'2-digit' }).format(new Date())}`;
+      } finally { savingChanges = false; }
+    });
+  }
+  function markChanged() { $('appError').textContent = ''; persistChanges(); }
   function render() {
     const state = session.snapshot();
     if (state.unlocked) { if ($('gate').open) $('gate').close(); }
@@ -53,8 +63,9 @@
     $('workspace').hidden = !state.unlocked;
     if (!state.unlocked) { document.body.classList.remove('hawaii-theme'); return; }
     $('connectedRepo').textContent = state.repo;
-    $('saveStatus').textContent = state.accessPending ? '다른 기기 접속 등록이 아직 완료되지 않았어요. 연결 설정에서 다시 등록해 주세요.' : state.dirty ? '아직 저장하지 않은 변경이 있어요.' : saveMessage;
-    $('saveBtn').disabled = pending;
+    $('saveStatus').textContent = savingChanges ? '변경 내용을 자동 저장하고 있어요…' : state.accessPending ? '다른 기기 접속 등록이 아직 완료되지 않았어요. 연결 설정에서 다시 등록해 주세요.' : state.dirty ? '자동 저장이 완료되지 않았어요. 입력 내용은 유지됩니다. 다시 시도해 주세요.' : saveMessage;
+    $('retrySaveBtn').hidden = !state.dirty || savingChanges;
+    $('retrySaveBtn').disabled = pending;
     const trips = [...state.data.trips].sort((a, b) => a.start.localeCompare(b.start));
     if (!trips.some(trip => trip.id === selectedTrip)) selectedTrip = trips[0]?.id || null;
     $('tripList').replaceChildren();
@@ -283,12 +294,12 @@
     if(pending) return;
     const date=new Date(`${calendarMonth}-01T00:00:00Z`); date.setUTCMonth(date.getUTCMonth()+offset); calendarMonth=date.toISOString().slice(0,7); render();
   });
-  $('deleteTripBtn').addEventListener('click', () => { if (!pending && confirm('이 여행과 모든 일정을 삭제할까요? 저장하면 다른 기기에도 반영됩니다.')) { session.update(data => C.removeTrip(data, $('tripId').value)); draft = false; $('tripDialog').close(); markChanged(); } });
+  $('deleteTripBtn').addEventListener('click', () => { if (!pending && confirm('이 여행과 모든 일정을 삭제할까요? 삭제 내용은 자동 저장됩니다.')) { session.update(data => C.removeTrip(data, $('tripId').value)); draft = false; $('tripDialog').close(); markChanged(); } });
   $('deleteEventBtn').addEventListener('click', () => { if (!pending && confirm('이 일정을 삭제할까요?')) { session.update(data => C.removeEvent(data, selectedTrip, $('eventId').value)); draft = false; $('eventDialog').close(); markChanged(); } });
   for (const [id, offset] of [['prevDayBtn',-1],['nextDayBtn',1]]) $(id).addEventListener('click', () => { if (!pending) { selectedDate = C.shiftDate(selectedDate, offset); calendarMonth = selectedDate.slice(0,7); render(); } });
   $('allEvents').addEventListener('change', render);
   $('dayPicker').addEventListener('change', () => { if (!pending) { selectedDate = $('dayPicker').value; calendarMonth = selectedDate.slice(0,7); render(); } });
-  $('saveBtn').addEventListener('click', () => run('appError', async () => { $('saveStatus').textContent = '암호화하여 저장하고 있어요…'; await session.save(); saveMessage = `저장 완료 · ${new Intl.DateTimeFormat('ko-KR', { hour: '2-digit', minute: '2-digit' }).format(new Date())}`; }));
+  $('retrySaveBtn').addEventListener('click', persistChanges);
   $('reloadBtn').addEventListener('click', () => {
     if (session.snapshot().dirty && !confirm('저장하지 않은 변경을 버리고 최신 기록을 불러올까요? 변경을 남기려면 취소한 뒤 연결 설정에서 암호화 백업을 받으세요.')) return;
     run('appError', async () => { await session.reload(true); saveMessage = '최신 기록을 불러왔어요.'; });
