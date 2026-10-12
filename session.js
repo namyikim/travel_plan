@@ -4,7 +4,7 @@
 }(globalThis, (C, K, S) => {
   'use strict';
   function createSession(deps = {}) {
-    const read = deps.readRemote || S.readRemote, write = deps.writeRemote || S.writeRemote, publish = deps.publishConnection || S.publishConnection;
+    const read = deps.readRemote || S.readRemote, write = deps.writeRemote || S.writeRemote, publish = deps.publishConnection || ((config, envelope, verify) => S.publishConnection(config, envelope, fetch, verify));
     let data = null, connection = null, password = null, sha = null, dirty = false, busy = false, generation = 0, accessPending = false;
     function ready() {
       if (busy) throw new Error('처리 중입니다. 잠시 기다려 주세요.');
@@ -86,7 +86,12 @@
           sha = saved.sha; dirty = false;
         }
         const config = await K.encryptJSON(connection, password); check();
-        await publish(connection, config); check();
+        await publish(connection, config, async () => {
+          check();
+          const latest = await read(connection); check();
+          if (latest.sha !== sha) throw new Error('다른 기기에서 기록이 바뀌었습니다. 최신 기록을 불러온 뒤 연결 등록을 다시 시도해 주세요.');
+          await loadData(latest, password); check();
+        }); check();
         accessPending = false;
         return config;
       });

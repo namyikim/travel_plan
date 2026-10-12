@@ -1,6 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const C = require('../core.js'), K = require('../crypto.js');
+const S = require('../sync.js');
 const { createSession } = require('../session.js');
 const password = 'my-private-travel-password';
 const connection = { repo: 'owner/private', token: 'test-placeholder' };
@@ -133,4 +134,28 @@ test('new password can be published and used on another device after a password 
   await other.open(await K.decryptJSON(config, 'NewTrip2027'), 'NewTrip2027');
   assert.equal(other.snapshot().unlocked, true);
   await assert.rejects(K.decryptJSON(config, password));
+});
+test('an old session cannot overwrite completed password rotation on another device', async () => {
+  let remote = { envelope: await K.encryptJSON(C.emptyData(), password), sha: 'data-1' };
+  let published = await K.encryptJSON(connection, password), revision = 1, releaseOld, oldStarted;
+  const oldWaiting = new Promise(resolve => { oldStarted = resolve; });
+  const api = async (url, options) => {
+    if (options.method === 'GET') return new Response(JSON.stringify({ sha: `config-${revision}` }));
+    const body = JSON.parse(options.body);
+    if (body.sha !== `config-${revision}`) return new Response('{}', { status: 409 });
+    published = JSON.parse(Buffer.from(body.content, 'base64').toString());
+    revision++;
+    return new Response(JSON.stringify({ content: { sha: `config-${revision}` } }));
+  };
+  const common = { readRemote: async () => remote, writeRemote: async (config, envelope) => { remote = { envelope, sha: 'data-2' }; return { sha: 'data-2' }; } };
+  const old = createSession({ ...common, publishConnection: async (config, envelope, verify) => { oldStarted(); await new Promise(resolve => { releaseOld = resolve; }); return S.publishConnection(config, envelope, api, verify); } });
+  const current = createSession({ ...common, publishConnection: (config, envelope, verify) => S.publishConnection(config, envelope, api, verify) });
+  await old.open(connection, password); await current.open(connection, password);
+  const publishing = old.enablePasswordAccess(); await oldWaiting;
+  await current.changePassword('NewTrip2027'); await current.enablePasswordAccess();
+  releaseOld();
+  await assert.rejects(publishing, /다른 기기/);
+  assert.deepEqual(await K.decryptJSON(published, 'NewTrip2027'), connection);
+  assert.deepEqual(await K.decryptJSON(remote.envelope, 'NewTrip2027'), C.emptyData());
+  assert.equal(revision, 2);
 });

@@ -65,7 +65,7 @@
     catch { throw error('FORMAT', '연결 정보 형식을 확인해 주세요.'); }
     return { version, kdf, iterations, salt, iv, ciphertext };
   }
-  async function publishConnection(connection, envelope, fetchFn = fetch) {
+  async function publishConnection(connection, envelope, fetchFn = fetch, verify = async () => {}) {
     const clean = encryptedFields(envelope);
     const site = { repo: 'namyikim/travel_plan', token: validateConnection(connection).token };
     try {
@@ -75,6 +75,7 @@
         const file = await previous.json(); sha = file.sha;
         if (typeof sha !== 'string' || !sha) throw error('FORMAT', '기존 연결 정보를 확인하지 못했습니다.');
       }
+      await verify();
       const result = await request(site, '/contents/connect.json', { method: 'PUT', body: JSON.stringify({ message: 'Update encrypted password access', content: btoa(JSON.stringify(clean)), ...(sha ? { sha } : {}) }) }, fetchFn);
       if (result.status === 404) throw error('PERMISSION', '사이트 저장소 접근 권한이 없습니다.');
       const saved = await result.json();
