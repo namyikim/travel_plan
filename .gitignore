@@ -1,0 +1,7 @@
+.superpowers/
+node_modules/
+playwright-report/
+test-results/
+connect.json
+travel-data.json
+*.local.json
