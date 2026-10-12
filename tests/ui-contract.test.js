@@ -23,3 +23,9 @@ test('personal setup has no repository name entry field', () => {
   const app = fs.readFileSync(path.join(__dirname, '../app.js'), 'utf8');
   assert.doesNotMatch(app, /\$\('setupRepo'\)/);
 });
+test('password access does not require connection-file upload or download controls', () => {
+  const html = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
+  assert.equal(/id="(?:connectionFile|downloadConnectionBtn)"/.test(html), false);
+  assert.match(html, /id="enableAccessBtn"/);
+  assert.match(html, /connect-src[^;]+https:\/\/raw\.githubusercontent\.com/);
+});

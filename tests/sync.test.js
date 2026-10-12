@@ -1,6 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const S = require('../sync.js');
+const K = require('../crypto.js');
 const connection = { repo: 'owner/travel-data', token: 'test-only-placeholder' };
 const response = (body, status = 200) => new Response(JSON.stringify(body), { status });
 const envelope = { ciphertext: 'encrypted-test' };
@@ -46,4 +47,39 @@ test('reject malformed repository, public writes, oversized data, and network fa
   await assert.rejects(S.writeRemote(connection, envelope, null, async () => response({ private: false })), e => e.code === 'PUBLIC');
   await assert.rejects(S.writeRemote(connection, { text: 'x'.repeat(900000) }, null, async () => response({ private: true })), e => e.code === 'SIZE');
   await assert.rejects(S.readRemote(connection, async () => { throw new Error('network with credential'); }), e => e.code === 'NETWORK' && !e.message.includes('credential'));
+});
+test('automatic connection publishing writes only encrypted fields to fixed site repo with SHA', async () => {
+  const sealed = await K.encryptJSON(connection, 'Trip2027');
+  for (const exists of [false, true]) {
+    let stored;
+    const result = await S.publishConnection(connection, { ...sealed, token: 'must-not-be-published' }, async (url, options) => {
+      assert.equal(url, 'https://api.github.com/repos/namyikim/travel_plan/contents/connect.json');
+      if (options.method === 'GET') return exists ? response({ sha: 'config-sha' }) : response({}, 404);
+      const body = JSON.parse(options.body);
+      assert.equal(body.sha, exists ? 'config-sha' : undefined);
+      stored = JSON.parse(Buffer.from(body.content, 'base64').toString());
+      assert.equal(JSON.stringify(stored).includes('test-only-placeholder'), false);
+      assert.equal(JSON.stringify(stored).includes('must-not-be-published'), false);
+      return response({ content: { sha: 'saved-config' } });
+    });
+    assert.deepEqual(stored, sealed);
+    assert.equal(result.sha, 'saved-config');
+  }
+});
+test('plain connection cannot be published and publishing permission errors are actionable', async () => {
+  let calls = 0;
+  await assert.rejects(S.publishConnection(connection, connection, async () => { calls++; return response({}); }));
+  assert.equal(calls, 0);
+  const sealed = await K.encryptJSON(connection, 'Trip2027');
+  await assert.rejects(S.publishConnection(connection, sealed, async () => response({},403)), e => e.message.includes('travel_plan') && e.message.includes('Contents'));
+});
+test('another device loads published encryption without a token or local file', async () => {
+  const sealed = await K.encryptJSON(connection, 'Trip2027');
+  const read = await S.readPublishedConnection(async (url, options) => {
+    assert.ok(url.startsWith('https://raw.githubusercontent.com/namyikim/travel_plan/main/connect.json'));
+    assert.equal(options.headers?.Authorization, undefined);
+    return response(sealed);
+  });
+  assert.deepEqual(await K.decryptJSON(read, 'Trip2027'), connection);
+  assert.equal(await S.readPublishedConnection(async () => response({},404)), null);
 });

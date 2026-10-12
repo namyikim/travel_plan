@@ -3,7 +3,7 @@
   const C = TravelCore, K = TravelCrypto, S = TravelSync;
   const session = TravelSession.createSession();
   const $ = id => document.getElementById(id);
-  let encryptedConnection = null, selectedTrip = null, selectedDate = '', pending = false, draft = false;
+  let encryptedConnection = null, selectedTrip = null, selectedDate = '', pending = false, draft = false, viewGeneration = 0;
   let saveMessage = '저장된 기록을 불러왔어요.';
   const disabledBefore = new Map();
   const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
@@ -18,9 +18,11 @@
   }
   async function run(errorId, operation) {
     if (pending) return;
+    const generation = viewGeneration;
+    const check = () => { if (generation !== viewGeneration) throw new Error('다시 비밀번호를 입력해 주세요.'); };
     $(errorId).textContent = ''; setBusy(true);
-    try { await operation(); }
-    catch (error) { $(errorId).textContent = error.message || '처리하지 못했습니다. 다시 시도해 주세요.'; }
+    try { await operation(check); }
+    catch (error) { if (generation === viewGeneration) $(errorId === 'gateError' && session.snapshot().unlocked ? 'appError' : errorId).textContent = error.message || '처리하지 못했습니다. 다시 시도해 주세요.'; }
     finally { setBusy(false); render(); }
   }
   function download(filename, value) {
@@ -34,7 +36,7 @@
     $('gate').hidden = state.unlocked; $('workspace').hidden = !state.unlocked;
     if (!state.unlocked) return;
     $('connectedRepo').textContent = state.repo;
-    $('saveStatus').textContent = state.dirty ? '아직 저장하지 않은 변경이 있어요.' : saveMessage;
+    $('saveStatus').textContent = state.accessPending ? '다른 기기 접속 등록이 아직 완료되지 않았어요. 연결 설정에서 다시 등록해 주세요.' : state.dirty ? '아직 저장하지 않은 변경이 있어요.' : saveMessage;
     $('saveBtn').disabled = pending;
     const trips = [...state.data.trips].sort((a, b) => a.start.localeCompare(b.start));
     if (!trips.some(trip => trip.id === selectedTrip)) selectedTrip = trips[0]?.id || null;
@@ -102,22 +104,25 @@
     for (const id of ['tripList','timeline','tripDestination','tripTitle','tripMeta','dayNumber','dayHeading','eventCount','connectedRepo','saveStatus','appError','settingsStatus','settingsError','tripFormError','eventFormError']) $(id).replaceChildren();
     for (const id of ['tripForm','eventForm','setupForm','unlockForm','passwordForm']) $(id).reset();
     for (const dialog of document.querySelectorAll('dialog')) if (dialog.open) dialog.close();
-    $('dayPicker').value = ''; $('connectionFile').value = '';
+    $('dayPicker').value = '';
     selectedTrip = null; selectedDate = ''; draft = false;
   }
   function lock(disconnect = false) {
     if (pending) return;
     const state = session.snapshot();
     if ((state.dirty || draft) && !confirm('저장하지 않은 변경을 버리고 잠글까요?')) return;
+    if (state.accessPending && !confirm('다른 기기의 비밀번호 접속 등록이 완료되지 않았어요. 잠그면 최초 설정에서 토큰과 현재 비밀번호로 다시 연결할 수 있습니다. 잠글까요?')) return;
     session.lock(true); clearSensitiveDOM();
-    if (disconnect) { encryptedConnection = null; $('configStatus').textContent = '연결을 해제했어요. 연결 파일을 선택하거나 처음 연결을 진행하세요.'; }
+    if (disconnect) { encryptedConnection = null; $('configStatus').textContent = '이 기기 연결을 해제했어요. 다시 비밀번호를 입력하면 열 수 있어요.'; }
     render(); $('unlockPassword').focus();
   }
   $('unlockForm').addEventListener('submit', event => {
-    event.preventDefault(); run('gateError', async () => {
-      if (!encryptedConnection) throw new Error('연결 정보가 아직 없어요. 아래의 처음 연결 또는 연결 파일 선택을 이용해 주세요.');
+    event.preventDefault(); run('gateError', async check => {
+      encryptedConnection = await S.readPublishedConnection(); check();
+      if (!encryptedConnection) throw new Error('아래의 최초 1회 설정에서 토큰과 비밀번호를 등록해 주세요. 이미 등록했다면 잠시 후 다시 시도해 주세요.');
       const pass = $('unlockPassword').value;
       const connection = S.validateConnection(await K.decryptJSON(encryptedConnection, pass));
+      check();
       await session.open(connection, pass); $('unlockForm').reset(); saveMessage = '저장된 기록을 불러왔어요.';
     });
   });
@@ -126,20 +131,11 @@
       const pass = $('setupPassword').value;
       if (pass !== $('setupConfirm').value) throw new Error('비밀번호 확인이 일치하지 않습니다.');
       const connection = S.personalConnection($('setupToken').value);
-      const config = await K.encryptJSON(connection, pass);
-      await session.open(connection, pass); encryptedConnection = config; $('setupForm').reset();
-      saveMessage = '연결했어요. 첫 여행을 만든 뒤 변경 내용을 저장해 주세요.';
-      $('settingsStatus').textContent = '연결 파일을 내려받아 보관하세요. 사이트 저장소에 업로드하면 다음부터 비밀번호만으로 열 수 있어요.';
-      $('settingsDialog').showModal();
+      await session.open(connection, pass); $('setupForm').reset();
+      encryptedConnection = await session.enablePasswordAccess();
+      saveMessage = '설정 완료! 다른 기기에서도 같은 비밀번호로 열 수 있어요.';
     });
   });
-  $('connectionFile').addEventListener('change', () => run('gateError', async () => {
-    const file = $('connectionFile').files[0]; if (!file) return;
-    if (file.size > 16000) throw new Error('연결 파일 크기가 올바르지 않습니다.');
-    const config = JSON.parse(await file.text());
-    if (config.version !== 1 || config.kdf !== 'PBKDF2-SHA256') throw new Error('암호화된 connect.json을 선택해 주세요.');
-    encryptedConnection = config; $('configStatus').textContent = '연결 파일을 선택했어요. 비밀번호를 입력해 주세요.';
-  }));
   for (const id of ['newTripBtn','firstTripBtn']) $(id).addEventListener('click', () => openTrip());
   $('editTripBtn').addEventListener('click', () => openTrip(true));
   $('newEventBtn').addEventListener('click', () => openEvent());
@@ -170,27 +166,26 @@
   });
   $('settingsBtn').addEventListener('click', () => { if (!pending) { $('settingsError').textContent = ''; $('settingsStatus').textContent = ''; $('settingsDialog').showModal(); } });
   $('lockBtn').addEventListener('click', () => lock()); $('disconnectBtn').addEventListener('click', () => lock(true));
-  $('downloadConnectionBtn').addEventListener('click', () => run('settingsError', async () => { const config = await session.connectionFile(); encryptedConnection = config; download('connect.json', config); $('settingsStatus').textContent = '연결 파일을 내려받았어요. 사이트 저장소 루트에 connect.json으로 업로드하면 비밀번호로 바로 열 수 있어요.'; }));
+  $('enableAccessBtn').addEventListener('click', () => run('settingsError', async () => { encryptedConnection = await session.enablePasswordAccess(); $('settingsStatus').textContent = '등록 완료! 다른 기기에서도 같은 비밀번호로 열 수 있어요.'; saveMessage = '비밀번호 접속 등록을 완료했어요.'; }));
   $('downloadBackupBtn').addEventListener('click', () => run('settingsError', async () => { download(`travel-backup-${today()}.json`, await session.backup()); $('settingsStatus').textContent = '암호화 백업을 내려받았어요. 복구에는 현재 비밀번호가 필요합니다.'; }));
   $('passwordForm').addEventListener('submit', event => {
     event.preventDefault();
     if ($('nextPassword').value !== $('nextConfirm').value) { $('settingsError').textContent = '새 비밀번호 확인이 일치하지 않습니다.'; return; }
-    if (!confirm('현재 기록을 저장하고 비밀번호를 바꿀까요? 새 연결 파일을 보관하고 사이트의 connect.json도 교체해야 합니다.')) return;
-    run('settingsError', async () => { const config = await session.changePassword($('nextPassword').value); encryptedConnection = config; $('passwordForm').reset(); download('connect.json', config); $('settingsStatus').textContent = '비밀번호를 변경했어요. 새 connect.json을 사이트 저장소에 교체해 주세요. 필요하면 연결 파일을 다시 내려받을 수 있어요.'; saveMessage = '새 비밀번호로 저장했어요.'; });
+    if (!confirm('현재 기록을 저장하고 다른 기기의 접속 비밀번호도 함께 바꿀까요?')) return;
+    run('settingsError', async () => { await session.changePassword($('nextPassword').value); $('passwordForm').reset(); saveMessage = '새 비밀번호로 저장했어요.'; encryptedConnection = await session.enablePasswordAccess(); $('settingsStatus').textContent = '변경 완료! 다른 기기에서도 새 비밀번호로 열 수 있어요.'; });
   });
   for (const el of document.querySelectorAll('[data-close]')) el.addEventListener('click', () => closeDialog(el.dataset.close));
   for (const id of ['tripDialog','eventDialog','settingsDialog']) $(id).addEventListener('cancel', event => { event.preventDefault(); closeDialog(id); });
   for (const id of ['tripForm','eventForm']) $(id).addEventListener('input', () => { draft = true; });
-  window.addEventListener('beforeunload', event => { if (session.snapshot().dirty || draft || pending) { event.preventDefault(); event.returnValue = ''; } });
-  window.addEventListener('pagehide', () => { session.invalidate(); clearSensitiveDOM(); render(); });
+  window.addEventListener('beforeunload', event => { if (session.snapshot().dirty || session.snapshot().accessPending || draft || pending) { event.preventDefault(); event.returnValue = ''; } });
+  window.addEventListener('pagehide', () => { viewGeneration++; session.invalidate(); clearSensitiveDOM(); render(); });
   async function init() {
     setBusy(true);
     try {
-      const result = await fetch('connect.json', { cache: 'no-store', signal: AbortSignal.timeout(12000) });
-      if (result.status === 404) { $('configStatus').textContent = '처음이라면 아래에서 저장소를 연결해 주세요.'; $('setupDetails').open = true; }
-      else if (!result.ok) throw new Error('연결 정보를 불러오지 못했습니다. 새로고침하거나 연결 파일을 선택해 주세요.');
-      else { const content = await result.text(); if (content.length > 16000) throw new Error('연결 파일이 너무 큽니다.'); encryptedConnection = JSON.parse(content); $('configStatus').textContent = '비밀번호로 나의 여행 계획을 열어보세요.'; }
-    } catch (error) { $('configStatus').textContent = '연결 정보를 불러오지 못했어요. 연결 파일 선택이나 처음 연결을 이용해 주세요.'; }
+      encryptedConnection = await S.readPublishedConnection();
+      if (!encryptedConnection) { $('configStatus').textContent = '아래에서 처음 한 번 비밀번호를 설정해 주세요.'; $('setupDetails').open = true; }
+      else $('configStatus').textContent = '비밀번호만 입력하면 어느 기기에서나 열 수 있어요.';
+    } catch (error) { $('configStatus').textContent = '연결 정보를 불러오지 못했어요. 잠시 후 다시 시도하거나 최초 설정으로 연결해 주세요.'; }
     finally { setBusy(false); render(); }
   }
   init();

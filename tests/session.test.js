@@ -100,3 +100,37 @@ test('navigation immediately clears a saving session and stale save completion s
   await assert.rejects(saving, /잠겼/);
   assert.equal(session.snapshot().unlocked, false);
 });
+test('enable password access initializes data then publishes connection for another device', async () => {
+  let remote = { envelope: null, sha: null }, published;
+  const session = createSession({ readRemote: async () => remote, writeRemote: async (config, envelope) => { remote = { envelope, sha: 'new' }; return { sha: 'new' }; }, publishConnection: async (config, envelope) => { assert.ok(remote.envelope); published = envelope; return { sha: 'config' }; } });
+  await session.open(connection, password);
+  await session.enablePasswordAccess();
+  const other = createSession({ readRemote: async () => remote });
+  await other.open(await K.decryptJSON(published, password), password);
+  assert.equal(other.snapshot().unlocked, true);
+});
+test('failed connection publishing keeps a usable session and can be retried without a JSON file', async () => {
+  let remote = { envelope: null, sha: null }, fail = true, published;
+  const session = createSession({ readRemote: async () => remote, writeRemote: async (config, envelope) => { remote = { envelope, sha: 'new' }; return { sha: 'new' }; }, publishConnection: async (config, envelope) => { if (fail) throw new Error('no site permission'); published = envelope; return { sha: 'config' }; } });
+  await session.open(connection, password);
+  await assert.rejects(session.enablePasswordAccess(), /no site permission/);
+  assert.equal(session.snapshot().unlocked, true);
+  assert.equal(session.snapshot().accessPending, true);
+  fail = false;
+  await session.enablePasswordAccess();
+  assert.deepEqual(await K.decryptJSON(published, password), connection);
+  assert.equal(session.snapshot().accessPending, false);
+});
+test('new password can be published and used on another device after a password change', async () => {
+  let remote = { envelope: null, sha: null }, config;
+  const session = createSession({ readRemote: async () => remote, writeRemote: async (connection, envelope) => { remote = { envelope, sha: 'saved' }; return { sha: 'saved' }; }, publishConnection: async (connection, envelope) => { config = envelope; return { sha: 'config' }; } });
+  await session.open(connection, password);
+  await session.enablePasswordAccess();
+  await session.changePassword('NewTrip2027');
+  assert.equal(session.snapshot().accessPending, true);
+  await session.enablePasswordAccess();
+  const other = createSession({ readRemote: async () => remote });
+  await other.open(await K.decryptJSON(config, 'NewTrip2027'), 'NewTrip2027');
+  assert.equal(other.snapshot().unlocked, true);
+  await assert.rejects(K.decryptJSON(config, password));
+});

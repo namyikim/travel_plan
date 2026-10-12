@@ -57,5 +57,43 @@
     if (!saved.content?.sha) throw error('FORMAT', '저장 결과를 확인하지 못했습니다. 최신 기록을 다시 불러와 확인해 주세요.');
     return { sha: saved.content.sha };
   }
-  return { personalConnection, validateConnection, readRemote, writeRemote };
+  function encryptedFields(value) {
+    if (!value || value.version !== 1 || value.kdf !== 'PBKDF2-SHA256' || value.iterations !== 600000) throw error('FORMAT', '암호화된 연결 정보만 등록할 수 있습니다.');
+    const { version, kdf, iterations, salt, iv, ciphertext } = value;
+    for (const field of [salt, iv, ciphertext]) if (typeof field !== 'string' || !/^[A-Za-z0-9+/]+={0,2}$/.test(field) || field.length > 16000) throw error('FORMAT', '연결 정보 형식을 확인해 주세요.');
+    try { if (atob(salt).length !== 16 || atob(iv).length !== 12 || atob(ciphertext).length < 16) throw new Error(); }
+    catch { throw error('FORMAT', '연결 정보 형식을 확인해 주세요.'); }
+    return { version, kdf, iterations, salt, iv, ciphertext };
+  }
+  async function publishConnection(connection, envelope, fetchFn = fetch) {
+    const clean = encryptedFields(envelope);
+    const site = { repo: 'namyikim/travel_plan', token: validateConnection(connection).token };
+    try {
+      const previous = await request(site, '/contents/connect.json', { method: 'GET' }, fetchFn);
+      let sha;
+      if (previous.status !== 404) {
+        const file = await previous.json(); sha = file.sha;
+        if (typeof sha !== 'string' || !sha) throw error('FORMAT', '기존 연결 정보를 확인하지 못했습니다.');
+      }
+      const result = await request(site, '/contents/connect.json', { method: 'PUT', body: JSON.stringify({ message: 'Update encrypted password access', content: btoa(JSON.stringify(clean)), ...(sha ? { sha } : {}) }) }, fetchFn);
+      if (result.status === 404) throw error('PERMISSION', '사이트 저장소 접근 권한이 없습니다.');
+      const saved = await result.json();
+      if (!saved.content?.sha) throw error('FORMAT', '연결 정보 등록 결과를 확인하지 못했습니다. 다시 시도해 주세요.');
+      return { sha: saved.content.sha };
+    } catch (failure) {
+      if (['AUTH','PERMISSION','ACCESS'].includes(failure.code)) throw error(failure.code, '자동 연결 등록에는 travel_plan과 travel-data 두 저장소의 Contents 읽기·쓰기 권한이 필요합니다. 토큰 권한을 확인한 뒤 다시 시도해 주세요.');
+      throw failure;
+    }
+  }
+  async function readPublishedConnection(fetchFn = fetch) {
+    let result;
+    try { result = await fetchFn(`https://raw.githubusercontent.com/namyikim/travel_plan/main/connect.json?t=${Date.now()}`, { cache: 'no-store', signal: AbortSignal.timeout(12000) }); }
+    catch { throw error('NETWORK', '연결 정보를 불러오지 못했어요. 인터넷 연결을 확인하고 다시 시도해 주세요.'); }
+    if (result.status === 404) return null;
+    if (!result.ok) throw error('REMOTE', '연결 정보를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.');
+    const body = await result.text();
+    if (body.length > 16000) throw error('FORMAT', '연결 정보 크기가 올바르지 않습니다.');
+    return encryptedFields(JSON.parse(body));
+  }
+  return { personalConnection, validateConnection, readRemote, writeRemote, publishConnection, readPublishedConnection };
 }));
