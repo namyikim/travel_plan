@@ -182,7 +182,7 @@
   for (const id of ['tripDialog','eventDialog','settingsDialog']) $(id).addEventListener('cancel', event => { event.preventDefault(); closeDialog(id); });
   for (const id of ['tripForm','eventForm']) $(id).addEventListener('input', () => { draft = true; });
   window.addEventListener('beforeunload', event => { if (session.snapshot().dirty || draft || pending) { event.preventDefault(); event.returnValue = ''; } });
-  window.addEventListener('pagehide', () => { if (session.snapshot().unlocked && !session.snapshot().busy) { session.lock(true); clearSensitiveDOM(); render(); } });
+  window.addEventListener('pagehide', () => { session.invalidate(); clearSensitiveDOM(); render(); });
   async function init() {
     setBusy(true);
     try {

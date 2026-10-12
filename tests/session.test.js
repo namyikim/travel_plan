@@ -58,3 +58,45 @@ test('failed reload keeps local data and explicit discard is required', async ()
   assert.equal(session.snapshot().data.trips.length, 1);
   assert.equal(session.snapshot().dirty, true);
 });
+test('existing falsy JSON payloads are corruption, never an empty new repository', async () => {
+  for (const envelope of [null, false, 0, '']) {
+    const session = createSession({ readRemote: async () => ({ envelope, sha: 'existing-file' }) });
+    await assert.rejects(session.open(connection, password));
+    assert.equal(session.snapshot().unlocked, false);
+  }
+});
+test('corrupt reload preserves current edits instead of replacing them with empty data', async () => {
+  let remote = { envelope: null, sha: null };
+  const session = createSession({ readRemote: async () => remote });
+  await session.open(connection, password);
+  session.update(data => C.upsertTrip(data, trip));
+  remote = { envelope: null, sha: 'existing-file' };
+  await assert.rejects(session.reload(true));
+  assert.equal(session.snapshot().data.trips[0].title, trip.title);
+  assert.equal(session.snapshot().dirty, true);
+});
+test('navigation invalidates pending unlock and its eventual result cannot reopen the session', async () => {
+  let resolveRead;
+  const session = createSession({ readRemote: () => new Promise(resolve => { resolveRead = resolve; }) });
+  const opening = session.open(connection, password);
+  session.invalidate();
+  resolveRead({ envelope: null, sha: null });
+  await assert.rejects(opening, /잠겼/);
+  assert.equal(session.snapshot().unlocked, false);
+  assert.equal(session.snapshot().data, null);
+});
+test('navigation immediately clears a saving session and stale save completion stays locked', async () => {
+  let resolveWrite, started;
+  const writing = new Promise(resolve => { started = resolve; });
+  const session = createSession({ readRemote: async () => ({ envelope: null, sha: null }), writeRemote: () => { started(); return new Promise(resolve => { resolveWrite = resolve; }); } });
+  await session.open(connection, password);
+  session.update(data => C.upsertTrip(data, trip));
+  const saving = session.save();
+  await writing;
+  session.invalidate();
+  assert.equal(session.snapshot().data, null);
+  assert.equal(session.snapshot().unlocked, false);
+  resolveWrite({ sha: 'saved' });
+  await assert.rejects(saving, /잠겼/);
+  assert.equal(session.snapshot().unlocked, false);
+});
