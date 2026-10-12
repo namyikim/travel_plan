@@ -18,17 +18,9 @@
 <body>
   <header class="site-header"><a class="brand" href="./"><span class="brand-mark" aria-hidden="true">↗</span> 여행노트 <span class="brand-en">TRAVEL NOTE</span></a><span class="header-note">가고 싶은 곳, 함께하는 시간</span></header>
   <main>
-    <section id="gate" class="gate">
-      <div class="gate-story">
-        <p class="eyebrow">YOUR NEXT CHAPTER</p>
-        <h1>다음 여행을,<br>한 장씩 채워요.</h1>
-        <p class="intro">설레는 출발부터 마지막 하루까지.<br>우리의 일정과 기억할 정보를 한곳에 모으세요.</p>
-        <div class="journey-art" aria-hidden="true"><span class="art-sun"></span><span class="art-mountain back"></span><span class="art-mountain front"></span><span class="art-road"></span><span class="art-pin">✦</span><span class="art-caption">MAKE ROOM FOR A LITTLE ADVENTURE</span></div>
-        <div class="story-foot"><span>01 &nbsp; 여행 만들기</span><span>02 &nbsp; 일정 채우기</span><span>03 &nbsp; 함께 떠나기</span></div>
-      </div>
+    <dialog id="gate" class="password-gate" aria-labelledby="unlockTitle">
       <div class="unlock-card">
-        <span class="pill">PRIVATE TRAVEL JOURNAL</span>
-        <h2>내 여행 열기</h2>
+        <h2 id="unlockTitle">여행노트 비밀번호</h2>
         <p class="muted">비밀번호를 입력하면 저장한 여행 계획을 볼 수 있어요.</p>
         <form id="unlockForm">
           <label for="unlockPassword">비밀번호</label>
@@ -37,7 +29,7 @@
         </form>
         <p id="configStatus" class="hint" role="status">연결 정보를 확인하고 있습니다.</p>
         <p id="gateError" class="error" role="alert"></p>
-        <details id="setupDetails"><summary>최초 1회 · 비밀번호 설정</summary>
+        <details id="setupDetails" hidden><summary>최초 1회 · 비밀번호 설정</summary>
           <p class="hint">처음 한 번 토큰과 비밀번호를 설정하면, 다른 기기에서도 비밀번호만으로 열 수 있어요. 연결 정보는 자동 등록됩니다. <a href="https://github.com/namyikim/travel_plan#처음-연결하기" target="_blank" rel="noopener noreferrer">설정 방법 보기 ↗</a></p>
           <form id="setupForm">
             <label for="setupToken">GitHub 토큰 · 최초 1회</label><input id="setupToken" type="password" required autocomplete="off" placeholder="travel_plan · travel-data 접근 권한">
@@ -49,7 +41,7 @@
         </details>
         <p class="security-note">◇ &nbsp; 비밀번호를 아는 사람만 여는 여행노트</p>
       </div>
-    </section>
+    </dialog>
 
     <section id="workspace" class="workspace" hidden>
       <div class="workspace-heading"><div><p class="eyebrow">MY TRAVEL COLLECTION</p><h1>우리의 다음 여행</h1></div><div class="actions"><button id="settingsBtn" class="quiet">연결 설정</button><button id="lockBtn" class="quiet">잠그기</button></div></div>

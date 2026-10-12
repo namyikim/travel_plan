@@ -33,7 +33,9 @@
   function markChanged() { saveMessage = '아직 저장하지 않은 변경이 있어요.'; $('appError').textContent = ''; render(); }
   function render() {
     const state = session.snapshot();
-    $('gate').hidden = state.unlocked; $('workspace').hidden = !state.unlocked;
+    if (state.unlocked) { if ($('gate').open) $('gate').close(); }
+    else if (!$('gate').open) $('gate').showModal();
+    $('workspace').hidden = !state.unlocked;
     if (!state.unlocked) return;
     $('connectedRepo').textContent = state.repo;
     $('saveStatus').textContent = state.accessPending ? '다른 기기 접속 등록이 아직 완료되지 않았어요. 연결 설정에서 다시 등록해 주세요.' : state.dirty ? '아직 저장하지 않은 변경이 있어요.' : saveMessage;
@@ -116,10 +118,11 @@
     if (disconnect) { encryptedConnection = null; $('configStatus').textContent = '이 기기 연결을 해제했어요. 다시 비밀번호를 입력하면 열 수 있어요.'; }
     render(); $('unlockPassword').focus();
   }
+  $('gate').addEventListener('cancel', event => event.preventDefault());
   $('unlockForm').addEventListener('submit', event => {
     event.preventDefault(); run('gateError', async check => {
       encryptedConnection = await S.readPublishedConnection(); check();
-      if (!encryptedConnection) throw new Error('아래의 최초 1회 설정에서 토큰과 비밀번호를 등록해 주세요. 이미 등록했다면 잠시 후 다시 시도해 주세요.');
+      if (!encryptedConnection) { $('setupDetails').hidden = false; throw new Error('아래의 최초 1회 설정에서 토큰과 비밀번호를 등록해 주세요. 이미 등록했다면 잠시 후 다시 시도해 주세요.'); }
       const pass = $('unlockPassword').value;
       const connection = S.validateConnection(await K.decryptJSON(encryptedConnection, pass));
       check();
@@ -133,6 +136,7 @@
       const connection = S.personalConnection($('setupToken').value);
       await session.open(connection, pass); $('setupForm').reset();
       encryptedConnection = await session.enablePasswordAccess();
+      $('setupDetails').hidden = true; $('setupDetails').open = false;
       saveMessage = '설정 완료! 다른 기기에서도 같은 비밀번호로 열 수 있어요.';
     });
   });
@@ -180,13 +184,13 @@
   window.addEventListener('beforeunload', event => { if (session.snapshot().dirty || session.snapshot().accessPending || draft || pending) { event.preventDefault(); event.returnValue = ''; } });
   window.addEventListener('pagehide', () => { viewGeneration++; session.invalidate(); clearSensitiveDOM(); render(); });
   async function init() {
-    setBusy(true);
+    render(); setBusy(true);
     try {
       encryptedConnection = await S.readPublishedConnection();
-      if (!encryptedConnection) { $('configStatus').textContent = '아래에서 처음 한 번 비밀번호를 설정해 주세요.'; $('setupDetails').open = true; }
+      if (!encryptedConnection) { $('configStatus').textContent = '아래에서 처음 한 번 비밀번호를 설정해 주세요.'; $('setupDetails').hidden = false; $('setupDetails').open = true; }
       else $('configStatus').textContent = '비밀번호만 입력하면 어느 기기에서나 열 수 있어요.';
-    } catch (error) { $('configStatus').textContent = '연결 정보를 불러오지 못했어요. 잠시 후 다시 시도하거나 최초 설정으로 연결해 주세요.'; }
-    finally { setBusy(false); render(); }
+    } catch (error) { $('configStatus').textContent = '연결 정보를 불러오지 못했어요. 인터넷 연결을 확인한 뒤 비밀번호를 입력해 다시 시도해 주세요.'; }
+    finally { setBusy(false); render(); $('unlockPassword').focus(); }
   }
   init();
 })();
