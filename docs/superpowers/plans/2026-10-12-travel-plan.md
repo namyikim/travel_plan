@@ -12,7 +12,7 @@
 
 ## Global Constraints
 - 빌드 및 외부 런타임 의존성이 없다. 한국어 반응형 화면을 제공한다.
-- PBKDF2-SHA256 600,000회, AES-GCM, 비밀번호 16자 이상을 적용한다.
+- PBKDF2-SHA256 600,000회, AES-GCM, 비밀번호 8자 이상을 적용한다.
 - 공개 저장소에는 코드와 암호화 connect.json만 둔다. 개인 기록과 토큰 원문을 커밋하지 않는다.
 - 비밀번호·복호화 데이터·데이터용 토큰을 세션 메모리에서만 유지한다.
 - SHA 충돌 시 자동 덮어쓰지 않는다. 저장 실패 시 세션의 입력을 유지한다.
@@ -37,7 +37,7 @@
 ### Task 2: 암호화와 GitHub 저장
 **Files:** crypto.js, sync.js, tests/crypto.test.js, tests/sync.test.js
 **Interfaces:** encryptJSON(value,password)→Promise<{version,kdf,iterations,salt,iv,ciphertext}>; decryptJSON(envelope,password)→Promise<object>; readRemote(connection,fetchFn)→Promise<{envelope,sha}>; writeRemote(connection,envelope,sha,fetchFn)→Promise<{sha}>. connection={repo,token}; 고정 경로 travel-data.json.
-- [ ] 작성: JSON 왕복, 15자 비밀번호 거부, 잘못된 비밀번호 및 암호문 변조 거부 테스트. assert.equal(envelope.iterations,600000); assert.rejects(() => decryptJSON(envelope,'different-password-123')).
+- [ ] 작성: JSON 왕복, 7자 비밀번호 거부, 잘못된 비밀번호 및 암호문 변조 거부 테스트. assert.equal(envelope.iterations,600000); assert.rejects(() => decryptJSON(envelope,'different-password-123')).
 - [ ] 작성: 모의 API 401/403/409, 저장소 없음, 접근 가능한 저장소의 파일 없음, 새 파일 생성 및 SHA 갱신 테스트. 충돌 후 write 호출 횟수는 1이다.
 - [ ] 실행: node --test tests/crypto.test.js tests/sync.test.js → 실패 확인.
 - [ ] 구현: 랜덤 salt와 12-byte IV, 비추출 키를 사용한다. 파일 부재 시 저장소 접근을 별도 확인한 뒤 빈 상태를 반환한다. 토큰을 메시지에 포함하지 않는다.
@@ -56,7 +56,7 @@
 
 ### Task 4: 배포·문서·최종 검증
 **Files:** README.md, .nojekyll, .github/workflows/test.yml
-- [ ] 작성: README에 비공개 저장소 생성, 데이터용 Contents 토큰, 16자 이상 비밀번호, connect.json 업로드, GitHub Pages main/root 설정, 키 변경과 충돌 대응을 설명한다. 개인 데이터용 토큰이 없으면 실제 동기화는 미확인으로 표시한다.
+- [ ] 작성: README에 비공개 저장소 생성, 데이터용 Contents 토큰, 8자 이상 비밀번호, connect.json 업로드, GitHub Pages main/root 설정, 키 변경과 충돌 대응을 설명한다. 개인 데이터용 토큰이 없으면 실제 동기화는 미확인으로 표시한다.
 - [ ] 구현: Node 테스트 CI와 .nojekyll을 추가한다.
 - [ ] 실행: npm test, JavaScript 문법 검사, git diff --check. 전체 파일에서 인증 원문·여행 개인정보 미포함을 확인한다.
 - [ ] 커밋: docs: document setup and add test workflow.

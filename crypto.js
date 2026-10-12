@@ -7,7 +7,7 @@
   const ITERATIONS = 600000;
   const encoder = new TextEncoder(), decoder = new TextDecoder('utf-8', { fatal: true });
   function checkPassword(password) {
-    if (typeof password !== 'string' || Array.from(password).length < 16 || password.length > 1024) throw new Error('비밀번호는 16자 이상, 1,024자 이하로 입력해 주세요.');
+    if (typeof password !== 'string' || Array.from(password).length < 8 || password.length > 1024) throw new Error('비밀번호는 8자 이상, 1,024자 이하로 입력해 주세요.');
     if (!globalThis.crypto?.subtle) throw new Error('암호화를 사용할 수 없습니다. HTTPS 주소로 접속해 주세요.');
   }
   function toBase64(bytes) {

@@ -13,11 +13,16 @@ test('encrypted JSON round trip preserves Korean text and randomizes ciphertext'
   assert.deepEqual(await K.decryptJSON(a, password), data);
 });
 test('short password, wrong password, tampering, and unsupported KDF rejected', async () => {
-  await assert.rejects(K.encryptJSON({}, '123456789012345'));
+  await assert.rejects(K.encryptJSON({}, '1234567'));
   const envelope = await K.encryptJSON({ secret: 'hello' }, password);
   await assert.rejects(K.decryptJSON(envelope, 'different-password-123'));
   const bytes = Buffer.from(envelope.ciphertext, 'base64'); bytes[0] ^= 1;
   await assert.rejects(K.decryptJSON({ ...envelope, ciphertext: bytes.toString('base64') }, password));
   await assert.rejects(K.decryptJSON({ ...envelope, iterations: 999999999 }, password));
   await assert.rejects(K.decryptJSON({ ...envelope, iv: 'bad' }, password));
+});
+test('eight-character password can encrypt and decrypt records', async () => {
+  const value = { title: '여행' };
+  const envelope = await K.encryptJSON(value, 'Trip2027');
+  assert.deepEqual(await K.decryptJSON(envelope, 'Trip2027'), value);
 });
