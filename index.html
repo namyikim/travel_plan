@@ -39,9 +39,8 @@
         <p id="gateError" class="error" role="alert"></p>
         <details id="fileDetails"><summary>연결 파일로 열기</summary><p class="hint">보관한 connect.json을 선택한 뒤 비밀번호를 입력하세요.</p><label class="file-label" for="connectionFile">암호화 연결 파일</label><input id="connectionFile" type="file" accept=".json,application/json"></details>
         <details id="setupDetails"><summary>처음 방문했어요 · 연결 설정</summary>
-          <p class="hint">비공개 데이터 저장소를 한 번 연결하면 다른 기기에서도 같은 계획을 열 수 있어요. <a href="https://github.com/namyikim/travel_plan#처음-연결하기" target="_blank" rel="noopener noreferrer">설정 방법 보기 ↗</a></p>
+          <p class="hint">개인용 여행노트입니다. 저장 위치는 자동으로 설정되며, 처음 한 번 데이터용 토큰과 비밀번호만 입력하면 됩니다. <a href="https://github.com/namyikim/travel_plan#처음-연결하기" target="_blank" rel="noopener noreferrer">설정 방법 보기 ↗</a></p>
           <form id="setupForm">
-            <label for="setupRepo">비공개 저장소</label><input id="setupRepo" placeholder="사용자이름/travel-data" required autocomplete="off" autocapitalize="off" spellcheck="false">
             <label for="setupToken">데이터 저장소용 GitHub 토큰</label><input id="setupToken" type="password" required autocomplete="off" placeholder="Contents 읽기·쓰기 권한">
             <label for="setupPassword">여행 비밀번호 · 8자 이상</label><input id="setupPassword" type="password" minlength="8" maxlength="1024" required autocomplete="new-password">
             <label for="setupConfirm">비밀번호 확인</label><input id="setupConfirm" type="password" minlength="8" maxlength="1024" required autocomplete="new-password">

@@ -17,3 +17,9 @@ test('UI never persists plaintext secrets or renders user HTML', () => {
   assert.doesNotMatch(app, /\.innerHTML\s*=|insertAdjacentHTML|document\.write\(/);
   assert.match(app, /beforeunload/);
 });
+test('personal setup has no repository name entry field', () => {
+  const html = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
+  assert.doesNotMatch(html, /<input[^>]*id="setupRepo"/);
+  const app = fs.readFileSync(path.join(__dirname, '../app.js'), 'utf8');
+  assert.doesNotMatch(app, /\$\('setupRepo'\)/);
+});

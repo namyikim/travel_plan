@@ -4,6 +4,8 @@
   else root.TravelSync = api;
 }(globalThis, () => {
   'use strict';
+  const PERSONAL_REPOSITORY = 'namyikim/travel-data';
+  const personalConnection = token => validateConnection({ repo: PERSONAL_REPOSITORY, token });
   function error(code, message) { return Object.assign(new Error(message), { code }); }
   function validateConnection(raw) {
     if (!raw || typeof raw.repo !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9-]*\/[A-Za-z0-9_.-]+$/.test(raw.repo) || /\/(?:\.|\.\.)$/.test(raw.repo)) throw error('CONFIG', '저장소는 사용자이름/저장소이름 형식으로 입력해 주세요.');
@@ -55,5 +57,5 @@
     if (!saved.content?.sha) throw error('FORMAT', '저장 결과를 확인하지 못했습니다. 최신 기록을 다시 불러와 확인해 주세요.');
     return { sha: saved.content.sha };
   }
-  return { validateConnection, readRemote, writeRemote };
+  return { personalConnection, validateConnection, readRemote, writeRemote };
 }));

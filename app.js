@@ -125,7 +125,7 @@
     event.preventDefault(); run('gateError', async () => {
       const pass = $('setupPassword').value;
       if (pass !== $('setupConfirm').value) throw new Error('비밀번호 확인이 일치하지 않습니다.');
-      const connection = S.validateConnection({ repo: $('setupRepo').value.trim(), token: $('setupToken').value });
+      const connection = S.personalConnection($('setupToken').value);
       const config = await K.encryptJSON(connection, pass);
       await session.open(connection, pass); encryptedConnection = config; $('setupForm').reset();
       saveMessage = '연결했어요. 첫 여행을 만든 뒤 변경 내용을 저장해 주세요.';
