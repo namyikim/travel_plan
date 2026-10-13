@@ -163,11 +163,19 @@
     if (typeof value !== 'object' || !Number.isFinite(value.lat) || !Number.isFinite(value.lon) || Math.abs(value.lat)>90 || Math.abs(value.lon)>180) fail('지도 위치가 올바르지 않습니다. 장소를 다시 선택해 주세요.');
     return {lat:value.lat,lon:value.lon,label:text(value.label,'지도 장소명',1000,true)};
   }
+  // A time belongs to a specific pair of consecutive daily stops.
+  // Missing fields keep older version-1 itinerary JSON compatible.
+  function validateTravelMinutes(value) {
+    if (value === undefined || value === null) return null;
+    if (!Number.isInteger(value) || value < 1 || value > 1440) fail('지점 간 이동시간은 1~1440분의 정수로 입력해 주세요.');
+    return value;
+  }
   function validateEvent(raw, trip) {
     if (!raw || typeof raw !== 'object') fail('일정 정보를 확인해 주세요.');
     if (!validDate(raw.date) || raw.date < trip.start || raw.date > trip.end) fail('모든 일정 날짜는 여행 기간 안에 있어야 합니다.');
     if (typeof raw.time !== 'string' || (raw.time !== '' && !/^([01]\d|2[0-3]):[0-5]\d$/.test(raw.time))) fail('시간을 확인해 주세요.');
-    const event = { id: id(raw.id), date: raw.date, time: raw.time, place: text(raw.place, '일정·장소', 200, true), transport: text(raw.transport, '이동 정보', 500), lodging: text(raw.lodging, '숙소', 500), note: text(raw.note, '메모', 5000), url: text(raw.url, '참고 링크', 2000), mapLocation: validateMapLocation(raw.mapLocation), category: raw.category ?? 'auto', timeZone: raw.timeZone ?? 'Asia/Seoul', timeOccurrence: raw.timeOccurrence ?? 'earlier', usdCents: moneyUnits(raw.usdCents), krw: moneyUnits(raw.krw) };
+    const event = { id: id(raw.id), date: raw.date, time: raw.time, place: text(raw.place, '일정·장소', 200, true), transport: text(raw.transport, '이동 정보', 500), lodging: text(raw.lodging, '숙소', 500), note: text(raw.note, '메모', 5000), url: text(raw.url, '참고 링크', 2000), mapLocation: validateMapLocation(raw.mapLocation), category: raw.category ?? 'auto', timeZone: raw.timeZone ?? 'Asia/Seoul', timeOccurrence: raw.timeOccurrence ?? 'earlier', usdCents: moneyUnits(raw.usdCents), krw: moneyUnits(raw.krw), travelFromId: raw.travelFromId == null ? null : id(raw.travelFromId), travelMinutes: validateTravelMinutes(raw.travelMinutes) };
+    if ((event.travelFromId === null) !== (event.travelMinutes === null) || event.travelFromId === event.id) fail('이동시간의 출발 지점 정보를 확인해 주세요.');
     if (!['earlier','later'].includes(event.timeOccurrence)) fail('중복 시간 기준을 확인해 주세요.');
     if (event.category !== 'auto' && !Object.hasOwn(categories, event.category)) fail('일정 아이콘을 선택해 주세요.');
     eventInstant(event);

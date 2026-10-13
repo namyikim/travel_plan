@@ -17,3 +17,16 @@ test('day map uses only selected local date, preserves chronology and marks miss
  assert.match(M.routeURL(stops),/-157.83,21.28;-157.8,21.3/);
  assert.throws(()=>M.routeURL([{...stops[0],category:'flight'},stops[1]]),/비행기/);
 });
+
+test('manual travel time belongs to the exact previous stop and has readable label',()=>{
+ const M=require('../map.js');
+ const first={...e,id:'first',mapLocation:{lat:21.28,lon:-157.83,label:'Waikiki'}};
+ const second={...e,id:'second',time:'12:00',travelFromId:'first',travelMinutes:85,mapLocation:{lat:21.30,lon:-157.8,label:'Beach'}};
+ assert.equal(M.legMinutes(first,second),85);
+ assert.equal(M.formatMinutes(85),'1시간 25분');
+ assert.equal(M.formatMinutes(60),'1시간');
+ assert.equal(M.formatMinutes(30),'30분');
+ assert.equal(M.legMinutes({...first,id:'changed'},second),null);
+ assert.equal(M.legMinutes(first,{...second,date:t.end}),null);
+ assert.equal(M.legMinutes(first,{...second,travelMinutes:null}),null);
+});

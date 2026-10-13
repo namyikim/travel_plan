@@ -14,6 +14,18 @@
       const trip = tripNow(), event = trip?.events.find(item => item.id === eventId);
       if (!event) return;
       session.update(data => C.upsertEvent(data, trip.id, {...event, mapLocation:location})); markChanged();
+    },
+    onTravelTime: (fromId, toId, minutes) => {
+      if (pending || !session.snapshot().unlocked) return;
+      const trip = tripNow();
+      if (!trip) return;
+      const stops = TravelMap.dayEvents(trip, selectedDate);
+      const index = stops.findIndex(item => item.id === toId);
+      if (index < 1 || stops[index - 1].id !== fromId) return;
+      session.update(data => C.upsertEvent(data, trip.id, {
+        ...stops[index], travelFromId: minutes === null ? null : fromId, travelMinutes: minutes
+      }));
+      markChanged();
     }
   });
   let calendarMonth = '', calendarTrip = '';
@@ -102,6 +114,9 @@
       heading.append(node('h4', '', event.place), action('수정', 'quiet', () => openEvent(event)));
       content.append(heading, node('p', 'event-zone', `${event.date} · ${C.timeZones[event.timeZone]}${event.timeOccurrence === 'later' ? ' · 중복 시간 두 번째' : ''}`));
       if (event.transport) content.append(node('p', 'event-info', `이동  ·  ${event.transport}`));
+      const dayStops=TravelMap.dayEvents(trip,event.date),stopIndex=dayStops.findIndex(item=>item.id===event.id);
+      const from=stopIndex>0?dayStops[stopIndex-1]:null,minutes=TravelMap.legMinutes(from,event);
+      if(minutes!==null)content.append(node('p','event-info',`이전 지점 → 현재 지점 · 예상 ${TravelMap.formatMinutes(minutes)} (직접 입력)`));
       if (event.lodging) content.append(node('p', 'event-info', `숙소  ·  ${event.lodging}`));
       if (event.usdCents !== null || event.krw !== null) content.append(node('p', 'event-cost', [event.usdCents === null ? '' : money(event.usdCents / 100, 'USD'), event.krw === null ? '' : money(event.krw, 'KRW')].filter(Boolean).join(' + ')));
       if (event.note) content.append(node('p', 'event-note', event.note));
@@ -273,7 +288,7 @@
     event.preventDefault(); if (pending) return;
     try {
       const previousEvent = tripNow()?.events.find(item => item.id === $('eventId').value);
-      const input = { mapLocation: previousEvent?.place === $('eventPlace').value.trim() ? previousEvent.mapLocation : null, id: $('eventId').value || crypto.randomUUID(), date: $('eventDate').value, time: $('eventTime').value, category: $('eventCategory').value, timeZone: $('eventTimeZone').value, timeOccurrence: $('eventTimeOccurrence').value, place: $('eventPlace').value, transport: $('eventTransport').value, lodging: $('eventLodging').value, note: $('eventNote').value, url: $('eventUrl').value, usdCents: C.parseMoney($('eventUSD').value, 'USD'), krw: C.parseMoney($('eventKRW').value, 'KRW') };
+      const input = { mapLocation: previousEvent?.place === $('eventPlace').value.trim() ? previousEvent.mapLocation : null, travelFromId: previousEvent?.travelFromId ?? null, travelMinutes: previousEvent?.travelMinutes ?? null, id: $('eventId').value || crypto.randomUUID(), date: $('eventDate').value, time: $('eventTime').value, category: $('eventCategory').value, timeZone: $('eventTimeZone').value, timeOccurrence: $('eventTimeOccurrence').value, place: $('eventPlace').value, transport: $('eventTransport').value, lodging: $('eventLodging').value, note: $('eventNote').value, url: $('eventUrl').value, usdCents: C.parseMoney($('eventUSD').value, 'USD'), krw: C.parseMoney($('eventKRW').value, 'KRW') };
       session.update(data => C.upsertEvent(data, selectedTrip, input));
       selectedDate = input.date; calendarMonth = input.date.slice(0,7); draft = false; $('eventDialog').close(); markChanged();
     } catch (error) { $('eventFormError').textContent = error.message; }

@@ -4,13 +4,16 @@
 }(globalThis,C=>{
   'use strict';
   const dayEvents=(trip,date)=>trip.events.filter(event=>event.date===date).sort(C.compareEvents);
+  // If a stop is reordered, do not display its old duration on an unrelated leg.
+  const legMinutes=(from,to)=>from && to && from.date===to.date && to.travelFromId===from.id && Number.isInteger(to.travelMinutes) && to.travelMinutes>=1 && to.travelMinutes<=1440 ? to.travelMinutes : null;
+  const formatMinutes=minutes=>minutes>=60 ? `${Math.floor(minutes/60)}시간${minutes%60 ? ` ${minutes%60}분` : ''}` : `${minutes}분`;
   function routeURL(events){
     if(events.length<2 || events.length>25) throw new Error('자동차 경로는 2~25개 장소에서 사용할 수 있어요.');
     if(events.some(event=>!event.mapLocation)) throw new Error('먼저 모든 일정의 지도 위치를 지정해 주세요.');
     if(events.some(event=>['flight','ferry'].includes(C.eventCategory(event)))) throw new Error('비행기·배 일정은 자동차 경로 대신 점선으로 확인해 주세요.');
     return `https://router.project-osrm.org/route/v1/driving/${events.map(e=>`${e.mapLocation.lon},${e.mapLocation.lat}`).join(';')}?overview=full&geometries=geojson&steps=false`;
   }
-  function create({onLocation,onEdit,isBusy}){
+  function create({onLocation,onEdit,onTravelTime,isBusy}){
     const $=id=>document.getElementById(id);
     const el=(tag,cls,text)=>{const n=document.createElement(tag);if(cls)n.className=cls;if(text!==undefined)n.textContent=text;return n;};
     const button=(text,handler)=>{const b=el('button','quiet',text);b.type='button';b.addEventListener('click',handler);return b;};
@@ -32,16 +35,25 @@
     }
     function paint(){
       layer.clearLayers();routeLayer=null;
-      let previous=null;
+      let previous=null,previousEvent=null;
       events.forEach((event,index)=>{
         const location=event.mapLocation;
-        if(!location){previous=null;return;}
+        if(!location){previous=null;previousEvent=null;return;}
         const point=[location.lat,location.lon];
         const icon=L.divIcon({className:'route-pin',html:String(index+1),iconSize:[30,30],iconAnchor:[15,15]});
         const popup=el('div','');popup.append(el('strong','',`${index+1}. ${event.place}`),el('p','',`${event.time || '시간 미정'} · ${C.timeZones[event.timeZone]}`),el('p','',location.label));
         L.marker(point,{icon,title:`${index+1}. ${event.place}`}).bindPopup(popup).addTo(layer);
-        if(previous)L.polyline([previous,point],{color:'#2463d4',weight:3,dashArray:'6 8'}).addTo(layer);
-        previous=point;
+        if(previous){
+          L.polyline([previous,point],{color:'#2463d4',weight:3,dashArray:'6 8'}).addTo(layer);
+          const minutes=legMinutes(previousEvent,event);
+          if(minutes!==null){
+            // This midpoint is on the planned connection, not a traffic-aware road route.
+            const midpoint=[(previous[0]+point[0])/2,(previous[1]+point[1])/2];
+            const labelIcon=L.divIcon({className:'route-duration-marker',html:`<span>약 ${formatMinutes(minutes)}</span>`,iconSize:[112,30],iconAnchor:[56,15]});
+            L.marker(midpoint,{icon:labelIcon,interactive:false,keyboard:false,zIndexOffset:500}).addTo(layer);
+          }
+        }
+        previous=point;previousEvent=event;
       });
       if(layer.getLayers().length)map.fitBounds(layer.getBounds(),{padding:[35,35],maxZoom:14});
       else map.setView(events[0]?.timeZone === 'Asia/Seoul' ? [37.56,126.97] : [21.3,-157.8],9);
@@ -75,6 +87,23 @@
     function list(){
       $('mapStops').replaceChildren();
       events.forEach((event,index)=>{
+        if(index>0){
+          const from=events[index-1],minutes=legMinutes(from,event);
+          const leg=el('div','map-leg-time');
+          const label=el('label','map-leg-caption',`${index} → ${index+1} 지점 이동시간`);
+          const input=el('input','map-leg-input');
+          input.type='number';input.min='1';input.max='1440';input.step='1';input.inputMode='numeric';
+          input.id=`mapLegMinutes${index}`;input.placeholder='예: 45';input.value=minutes??'';
+          input.setAttribute('aria-label',`${index}번 지점에서 ${index+1}번 지점까지 예상 이동시간 (분)`);
+          label.htmlFor=input.id;
+          input.addEventListener('change',()=>{
+            if(isBusy())return;
+            if(input.value!==''&&!input.checkValidity()){input.reportValidity();return;}
+            onTravelTime(from.id,event.id,input.value===''?null:Number(input.value));
+          });
+          leg.append(label,input,el('span','map-leg-unit','분 · 수동 입력'));
+          $('mapStops').append(leg);
+        }
         const card=el('article','map-stop'),heading=el('div','section-label');
         heading.append(el('strong','',`${index+1}. ${event.time || '시간 미정'} · ${event.place}`),button('일정 수정',()=>{if(!isBusy())onEdit(event);}));card.append(heading);
         if(event.mapLocation)card.append(el('p','hint',`📍 ${event.mapLocation.label}`));
@@ -128,5 +157,5 @@
     $('fitMapBtn').addEventListener('click',()=>{if(map&&layer?.getLayers().length)map.fitBounds(layer.getBounds(),{padding:[35,35],maxZoom:14});});
     return {update,clear};
   }
-  return {dayEvents,routeURL,create};
+  return {dayEvents,legMinutes,formatMinutes,routeURL,create};
 }));

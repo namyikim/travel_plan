@@ -92,3 +92,20 @@ test('all-date ordering uses instants, undated times sort last, and time zones s
  const data=C.upsertEvent(C.upsertTrip(C.emptyData(),trip),trip.id,b);
  assert.equal(C.upsertTrip(data,{...trip,title:'새 여행'}).trips[0].events[0].timeZone,'Pacific/Honolulu');
 });
+
+test('point-to-point durations survive event edits and version-1 JSON round trips',()=>{
+ const first={...event,id:'first',date:trip.start,time:'09:00'};
+ const second={...event,id:'second',date:trip.start,time:'10:00',travelFromId:'first',travelMinutes:75};
+ let data=C.upsertEvent(C.upsertTrip(C.emptyData(),trip),trip.id,first);
+ data=C.upsertEvent(data,trip.id,second);
+ data=C.validateData(JSON.parse(JSON.stringify(data)));
+ assert.equal(data.trips[0].events[1].travelFromId,'first');
+ assert.equal(data.trips[0].events[1].travelMinutes,75);
+ data=C.upsertEvent(data,trip.id,{...data.trips[0].events[1],note:'edited'});
+ assert.equal(data.trips[0].events[1].travelMinutes,75);
+ assert.equal(C.validateEvent(event,trip).travelMinutes,null);
+ for(const invalid of [-1,0,1.2,1441,NaN,Infinity,'30'])assert.throws(()=>C.validateEvent({...second,travelMinutes:invalid},trip));
+ assert.throws(()=>C.validateEvent({...second,travelFromId:'second'},trip));
+ assert.throws(()=>C.validateEvent({...second,travelFromId:null},trip));
+ assert.throws(()=>C.validateEvent({...second,travelMinutes:null},trip));
+});
