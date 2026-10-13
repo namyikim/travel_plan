@@ -5,7 +5,7 @@
   const loginStore = TravelLogin.createLoginStore();
   const $ = id => document.getElementById(id);
   let encryptedConnection = null, selectedTrip = null, selectedDate = '', pending = false, draft = false, viewGeneration = 0;
-  let detailView = 'list';
+  let detailView = 'list', mainView = 'trips', restaurantIsland = 'oahu';
   const mapView = TravelMap.create({
     isBusy: () => pending,
     onEdit: event => openEvent(event),
@@ -83,7 +83,7 @@
     $('tripList').replaceChildren();
     if (!trips.length) $('tripList').append(node('p', 'hint', '아직 등록한 여행이 없어요.'));
     for (const trip of trips) {
-      const button = action('', `trip-card${trip.id === selectedTrip ? ' selected' : ''}`, () => { selectedTrip = trip.id; selectedDate = trip.start; render(); });
+      const button = action('', `trip-card${trip.id === selectedTrip ? ' selected' : ''}`, () => { if(pending)return; mainView='trips'; selectedTrip = trip.id; selectedDate = trip.start; render(); });
       button.classList.toggle('hawaii-trip-card', isHawaii(trip));
       button.setAttribute('aria-pressed', String(trip.id === selectedTrip));
       button.append(node('span', 'trip-card-destination', trip.destination), node('strong', '', trip.title), node('span', '', `${trip.start} → ${trip.end}`));
@@ -91,6 +91,9 @@
     }
     const trip = trips.find(item => item.id === selectedTrip);
     document.body.classList.toggle('hawaii-theme', isHawaii(trip));
+    $('restaurantsPanel').hidden = mainView !== 'restaurants';
+    $('restaurantsBtn').setAttribute('aria-pressed',String(mainView === 'restaurants'));
+    if(mainView === 'restaurants') { $('noTrip').hidden=true; $('tripDetail').hidden=true; mapView.clear(); renderRestaurants(); return; }
     $('noTrip').hidden = !!trip; $('tripDetail').hidden = !trip;
     if (!trip) { $('timeline').replaceChildren(); mapView.clear(); return; }
     if (!C.validDate(selectedDate) || selectedDate < trip.start || selectedDate > trip.end) selectedDate = trip.start;
@@ -126,6 +129,57 @@
       content.append(links); card.append(node('div', 'event-time', event.time || '자유'), content); $('timeline').append(card);
     }
   }
+  function renderRestaurants() {
+    $('islandTabs').replaceChildren();
+    const keys=Object.keys(C.islands);
+    for(const [key,label] of Object.entries(C.islands)) {
+      const tab=action(label,'',()=>{if(!pending){restaurantIsland=key;render();}});
+      tab.id=`island-${key}`; tab.setAttribute('role','tab'); tab.setAttribute('aria-selected',String(key===restaurantIsland)); tab.setAttribute('aria-controls','restaurantList'); tab.tabIndex=key===restaurantIsland?0:-1; tab.disabled=pending;
+      tab.addEventListener('keydown',event=>{
+        if(pending || !['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;
+        event.preventDefault(); const index=keys.indexOf(key);
+        restaurantIsland=event.key==='Home'?keys[0]:event.key==='End'?keys[2]:keys[(index+(event.key==='ArrowRight'?1:2))%3];render(); $(`island-${restaurantIsland}`).focus();
+      }); $('islandTabs').append(tab);
+    }
+    $('restaurantList').setAttribute('aria-labelledby',`island-${restaurantIsland}`);
+    $('restaurantList').replaceChildren();
+    const items=(session.snapshot().data.restaurants || []).filter(r=>r.island===restaurantIsland);
+    if(!items.length) $('restaurantList').append(node('p','day-empty','아직 등록한 맛집이 없어요. ＋ 맛집 등록으로 추가해 주세요.'));
+    for(const item of items) {
+      const card=node('article','restaurant-card'), head=node('div','section-label');
+      const edit=action('수정','quiet',()=>openRestaurant(item));edit.disabled=pending;
+      head.append(node('h3','',item.name),edit);card.append(head);
+      if(item.location)card.append(node('p','event-info',`📍 ${item.location}`));
+      if(item.menu)card.append(node('p','event-info',`추천 메뉴 · ${item.menu}`));
+      if(item.note)card.append(node('p','event-note',item.note));
+      const links=node('div','event-links');
+      const islandName={oahu:'Oahu',maui:'Maui',bigisland:'Hawaii Island'}[item.island];
+      links.append(link('지도에서 찾기 ↗',`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${islandName} ${item.name} ${item.location}`)}`));
+      if(item.url)links.append(link('예약·참고 링크 ↗',item.url));card.append(links);$('restaurantList').append(card);
+    }
+  }
+  function openRestaurant(item) {
+    if(pending)return;
+    $('restaurantForm').reset();$('restaurantFormError').textContent='';
+    for(const [field,key] of [['Id','id'],['Name','name'],['Location','location'],['Menu','menu'],['Url','url'],['Note','note']]) $('restaurant'+field).value=item?.[key] || '';
+    $('restaurantIsland').value=item?.island || restaurantIsland;
+    $('restaurantDialogTitle').textContent=item?'맛집 수정':'맛집 등록';$('deleteRestaurantBtn').hidden=!item;
+    draft=false;$('restaurantDialog').showModal();$('restaurantName').focus();
+  }
+  $('restaurantsBtn').addEventListener('click',()=>{if(!pending){mainView='restaurants';render();}});
+  $('newRestaurantBtn').addEventListener('click',()=>openRestaurant());
+  $('restaurantForm').addEventListener('submit',event=>{
+    event.preventDefault();if(pending)return;
+    try {
+      const input={id:$('restaurantId').value || crypto.randomUUID(),island:$('restaurantIsland').value};
+      for(const [field,key] of [['Name','name'],['Location','location'],['Menu','menu'],['Url','url'],['Note','note']])input[key]=$('restaurant'+field).value;
+      session.update(data=>C.upsertRestaurant(data,input)); restaurantIsland=input.island; draft=false;$('restaurantDialog').close();markChanged();
+    } catch(error){$('restaurantFormError').textContent=error.message;}
+  });
+  $('deleteRestaurantBtn').addEventListener('click',()=>{
+    if(pending || !confirm('이 맛집을 삭제할까요?'))return;
+    session.update(data=>C.removeRestaurant(data,$('restaurantId').value));draft=false;$('restaurantDialog').close();markChanged();
+  });
   function renderDetailView(trip) {
     const showingMap = detailView === 'map';
     $('listPanel').hidden = showingMap; $('mapPanel').hidden = !showingMap;
@@ -220,18 +274,18 @@
   }
   function closeDialog(id) {
     if (pending) return;
-    if (['tripDialog','eventDialog','stayDialog'].includes(id) && draft && !confirm('반영하지 않은 입력을 닫을까요?')) return;
+    if (['restaurantDialog','tripDialog','eventDialog','stayDialog'].includes(id) && draft && !confirm('반영하지 않은 입력을 닫을까요?')) return;
     draft = false; $(id).close();
     if (id === 'settingsDialog') $('passwordForm').reset();
   }
   function clearSensitiveDOM() {
     mapView.clear(); detailView='list'; $('mapDateLabel').textContent='';
-    for (const id of ['calendarGrid','stayList','calendarMonth','stayFormError','tripList','timeline','tripDestination','tripTitle','tripMeta','tripCosts','dayNumber','dayHeading','eventCount','connectedRepo','saveStatus','appError','settingsStatus','settingsError','tripFormError','eventFormError']) $(id).replaceChildren();
-    for (const id of ['tripForm','eventForm','stayForm','setupForm','unlockForm','passwordForm']) $(id).reset();
+    for (const id of ['restaurantList','restaurantFormError','calendarGrid','stayList','calendarMonth','stayFormError','tripList','timeline','tripDestination','tripTitle','tripMeta','tripCosts','dayNumber','dayHeading','eventCount','connectedRepo','saveStatus','appError','settingsStatus','settingsError','tripFormError','eventFormError']) $(id).replaceChildren();
+    for (const id of ['restaurantForm','tripForm','eventForm','stayForm','setupForm','unlockForm','passwordForm']) $(id).reset();
     for (const dialog of document.querySelectorAll('dialog')) if (dialog.open) dialog.close();
     $('dayPicker').value = '';
     $('allEvents').checked = false;
-    selectedTrip = null; selectedDate = ''; draft = false;
+    selectedTrip = null; selectedDate = ''; draft = false; mainView='trips'; restaurantIsland='oahu';
   }
   async function rememberLogin() {
     try { await session.rememberLogin(loginStore); }
@@ -281,7 +335,7 @@
     try {
       const id = $('tripId').value || crypto.randomUUID();
       session.update(data => C.upsertTrip(data, { id, title: $('tripName').value, destination: $('destination').value, start: $('startDate').value, end: $('endDate').value, people: Number($('people').value), events: [] }));
-      selectedTrip = id; draft = false; $('tripDialog').close(); markChanged();
+      mainView='trips'; selectedTrip = id; draft = false; $('tripDialog').close(); markChanged();
     } catch (error) { $('tripFormError').textContent = error.message; }
   });
   $('eventForm').addEventListener('submit', event => {
@@ -333,8 +387,8 @@
       $('passwordForm').reset(); saveMessage = '새 비밀번호로 저장했어요.'; encryptedConnection = await session.enablePasswordAccess(); $('settingsStatus').textContent = '변경 완료! 다른 기기에서도 새 비밀번호로 열 수 있어요.'; });
   });
   for (const el of document.querySelectorAll('[data-close]')) el.addEventListener('click', () => closeDialog(el.dataset.close));
-  for (const id of ['tripDialog','eventDialog','stayDialog','settingsDialog']) $(id).addEventListener('cancel', event => { event.preventDefault(); closeDialog(id); });
-  for (const id of ['tripForm','eventForm','stayForm']) $(id).addEventListener('input', () => { draft = true; });
+  for (const id of ['restaurantDialog','tripDialog','eventDialog','stayDialog','settingsDialog']) $(id).addEventListener('cancel', event => { event.preventDefault(); closeDialog(id); });
+  for (const id of ['restaurantForm','tripForm','eventForm','stayForm']) $(id).addEventListener('input', () => { draft = true; });
   window.addEventListener('beforeunload', event => { if (session.snapshot().dirty || session.snapshot().accessPending || draft || pending) { event.preventDefault(); event.returnValue = ''; } });
   window.addEventListener('pagehide', () => { viewGeneration++; session.invalidate(); clearSensitiveDOM(); render(); });
   async function init() {

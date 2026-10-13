@@ -9,7 +9,7 @@
   <title>여행노트 · 나만의 여행 계획</title>
   <link rel="icon" href="favicon-blue.svg" type="image/svg+xml">
   <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
-  <link rel="stylesheet" href="style.css?v=map-leg-times-1">
+  <link rel="stylesheet" href="style.css?v=restaurants-1">
   <script src="core.js" defer></script>
   <script src="crypto.js" defer></script>
   <script src="sync.js" defer></script>
@@ -52,8 +52,14 @@
       <div class="save-bar"><p id="saveStatus" role="status">저장된 기록을 불러왔어요.</p><div class="actions"><button id="reloadBtn" class="quiet">새로 불러오기</button><button id="retrySaveBtn" class="primary" hidden>저장 다시 시도</button></div></div>
       <p id="appError" class="error" role="alert"></p>
       <div class="planner-layout">
-        <aside class="trip-sidebar"><div class="section-label"><h2>나의 여행</h2><button id="newTripBtn" class="small-btn">＋ 새 여행</button></div><div id="tripList" class="trip-list"></div><p class="sidebar-note">여행의 시작은<br>작은 계획 하나에서.</p></aside>
+        <aside class="trip-sidebar"><button id="restaurantsBtn" class="secondary wide" aria-pressed="false">🍽️ 맛집 리스트</button><div class="section-label"><h2>나의 여행</h2><button id="newTripBtn" class="small-btn">＋ 새 여행</button></div><div id="tripList" class="trip-list"></div><p class="sidebar-note">여행의 시작은<br>작은 계획 하나에서.</p></aside>
         <div class="planner-main">
+          <section id="restaurantsPanel" hidden aria-labelledby="restaurantsTitle">
+            <div class="section-label"><div><p class="eyebrow">ISLAND FOOD NOTES</p><h2 id="restaurantsTitle">맛집 리스트</h2></div><button id="newRestaurantBtn" class="primary">＋ 맛집 등록</button></div>
+            <p class="hint">섬별로 가고 싶은 맛집을 모아보세요. 등록·수정하면 자동 저장됩니다.</p>
+            <div id="islandTabs" class="detail-tabs" role="tablist" aria-label="맛집 섬 선택"></div>
+            <div id="restaurantList" role="tabpanel" tabindex="0"></div>
+          </section>
           <section id="noTrip" class="empty-state"><span class="empty-symbol" aria-hidden="true">↗</span><h2>어디로 떠나볼까요?</h2><p>목적지와 날짜를 정하고<br>나만의 여행 계획을 채워보세요.</p><button id="firstTripBtn" class="primary">첫 여행 만들기</button></section>
           <section id="tripDetail" hidden>
             <div class="trip-hero"><div><span class="aloha-badge" aria-hidden="true">ALOHA · ISLAND DAYS</span><p id="tripDestination" class="eyebrow"></p><h2 id="tripTitle"></h2><p id="tripMeta"></p></div><button id="editTripBtn" class="glass-btn">여행 수정</button><span class="hero-decoration" aria-hidden="true">↗</span></div>
@@ -90,6 +96,17 @@
   <footer class="site-footer"><span>여행노트 <span aria-hidden="true">·</span> 일상을 벗어나는 작은 계획</span><span>PLAN A LITTLE. EXPLORE A LOT.</span></footer>
   <noscript><p class="error">여행노트를 사용하려면 브라우저의 JavaScript를 켜 주세요.</p></noscript>
 
+  <dialog id="restaurantDialog" aria-labelledby="restaurantDialogTitle"><form id="restaurantForm">
+    <div class="dialog-head"><h2 id="restaurantDialogTitle">맛집 등록</h2><button type="button" data-close="restaurantDialog" class="icon-btn" aria-label="닫기">×</button></div>
+    <input id="restaurantId" type="hidden">
+    <label for="restaurantIsland">섬</label><select id="restaurantIsland"><option value="oahu">오하우</option><option value="maui">마우이</option><option value="bigisland">빅아이랜드</option></select>
+    <label for="restaurantName">맛집 이름</label><input id="restaurantName" required maxlength="200">
+    <label for="restaurantLocation">위치·주소 · 선택</label><input id="restaurantLocation" maxlength="500">
+    <label for="restaurantMenu">추천 메뉴 · 선택</label><input id="restaurantMenu" maxlength="500">
+    <label for="restaurantUrl">지도·예약 링크 · 선택</label><input id="restaurantUrl" type="url" maxlength="2000" placeholder="https://">
+    <label for="restaurantNote">메모 · 선택</label><textarea id="restaurantNote" rows="4" maxlength="5000"></textarea>
+    <p id="restaurantFormError" class="error" role="alert"></p><div class="dialog-foot"><button id="deleteRestaurantBtn" type="button" class="danger" hidden>맛집 삭제</button><button type="submit" class="primary">맛집 반영</button></div>
+  </form></dialog>
   <dialog id="tripDialog" aria-labelledby="tripDialogTitle"><form id="tripForm"><div class="dialog-head"><h2 id="tripDialogTitle">새 여행 만들기</h2><button type="button" data-close="tripDialog" class="icon-btn" aria-label="닫기">×</button></div><input id="tripId" type="hidden"><label for="tripName">여행명</label><input id="tripName" required maxlength="100" placeholder="예: 우리 가족의 여름휴가"><label for="destination">목적지</label><input id="destination" required maxlength="160" placeholder="예: 제주, 하와이"><div class="form-row"><div><label for="startDate">출발일</label><input id="startDate" type="date" min="1000-01-01" max="9999-12-31" required></div><div><label for="endDate">돌아오는 날</label><input id="endDate" type="date" min="1000-01-01" max="9999-12-31" required></div></div><label for="people">동행 인원 · 나를 포함</label><input id="people" type="number" min="1" max="999" step="1" required value="1"><p id="tripFormError" class="error" role="alert"></p><div class="dialog-foot"><button id="deleteTripBtn" type="button" class="danger" hidden>여행 삭제</button><button type="submit" class="primary">여행 반영</button></div><p class="hint">여행 반영을 누르면 자동 저장됩니다.</p></form></dialog>
   <dialog id="eventDialog" aria-labelledby="eventDialogTitle"><form id="eventForm"><div class="dialog-head"><h2 id="eventDialogTitle">일정 추가</h2><button type="button" data-close="eventDialog" class="icon-btn" aria-label="닫기">×</button></div><input id="eventId" type="hidden"><div class="form-row"><div><label for="eventDate">날짜</label><input id="eventDate" type="date" required></div><div><label for="eventTime">시간 · 선택</label><input id="eventTime" type="time"></div></div><label for="eventTimeZone">입력한 날짜·시간의 기준</label><select id="eventTimeZone" required></select><p class="hint">출발은 한국, 도착은 미국 지역을 선택하세요. 서머타임을 반영해 실제 시간순으로 표시합니다.</p><details><summary>서머타임 종료일의 중복 시간 설정</summary><label for="eventTimeOccurrence">같은 시간이 두 번 있는 경우</label><select id="eventTimeOccurrence"><option value="earlier">첫 번째 시간 (기본)</option><option value="later">두 번째 시간</option></select></details><label for="eventPlace">일정 · 장소</label><input id="eventPlace" required maxlength="200" placeholder="예: 바다를 보며 아침 산책"><label for="eventCategory">달력 아이콘</label><select id="eventCategory"><option value="auto">자동 선택 · 일정 내용 기준</option></select><label for="eventTransport">이동 방법 · 선택</label><input id="eventTransport" maxlength="500" placeholder="예: 렌터카 30분, 주차장 위치"><label for="eventLodging">숙소 · 선택</label><input id="eventLodging" maxlength="500" placeholder="숙소 이름, 체크인 시간"><label for="eventUrl">지도 · 예약 · 참고 링크 · 선택</label><input id="eventUrl" type="url" maxlength="2000" placeholder="https://"><div class="form-row"><div><label for="eventUSD">금액 · USD</label><input id="eventUSD" type="number" min="0" max="9999999999.99" step="0.01" inputmode="decimal" placeholder="예: 120.50"></div><div><label for="eventKRW">금액 · 원화 (KRW)</label><input id="eventKRW" type="number" min="0" max="999999999999" step="1" inputmode="numeric" placeholder="예: 50000"></div></div><p class="hint">각 통화로 지출할 금액을 따로 입력하세요. 같은 비용의 환산액을 중복 입력하지 마세요.</p><label for="eventNote">메모 · 선택</label><textarea id="eventNote" rows="4" maxlength="5000" placeholder="예약 정보, 준비물, 꼭 기억할 것"></textarea><p id="eventFormError" class="error" role="alert"></p><div class="dialog-foot"><button id="deleteEventBtn" type="button" class="danger" hidden>일정 삭제</button><button type="submit" class="primary">일정 반영</button></div></form></dialog>
   <dialog id="stayDialog" aria-labelledby="stayDialogTitle"><form id="stayForm"><div class="dialog-head"><h2 id="stayDialogTitle">지역·체류 기간</h2><button type="button" data-close="stayDialog" class="icon-btn" aria-label="닫기">×</button></div><input id="stayId" type="hidden"><label for="stayName">지역·섬 이름</label><input id="stayName" required maxlength="60" placeholder="예: 오아후, 마우이"><div class="form-row"><div><label for="stayStart">시작일 · 현지 날짜</label><input id="stayStart" type="date" required></div><div><label for="stayEnd">종료일 · 현지 날짜</label><input id="stayEnd" type="date" required></div></div><p class="hint">시작일부터 종료일까지 달력에 표시합니다. 섬을 이동하는 날은 두 지역의 기간이 겹쳐도 괜찮아요.</p><p id="stayFormError" class="error" role="alert"></p><div class="dialog-foot"><button id="deleteStayBtn" type="button" class="danger" hidden>체류 기간 삭제</button><button type="submit" class="primary">달력에 반영</button></div><p class="hint">달력에 반영을 누르면 자동 저장됩니다.</p></form></dialog>

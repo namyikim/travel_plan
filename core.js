@@ -194,7 +194,32 @@
     if (!raw || raw.version !== 1 || !Array.isArray(raw.trips)) fail('지원하지 않는 여행 파일 형식입니다.');
     const data = { version: 1, trips: raw.trips.map(validateTrip) };
     unique(data.trips);
+    if (raw.restaurants !== undefined) {
+      if (!Array.isArray(raw.restaurants)) fail('맛집 목록을 확인해 주세요.');
+      data.restaurants = raw.restaurants.map(validateRestaurant);
+      unique(data.restaurants);
+    }
     return data;
+  }
+  const islands = {oahu:'오하우', maui:'마우이', bigisland:'빅아이랜드'};
+  function validateRestaurant(raw) {
+    if (!raw || !Object.hasOwn(islands, raw.island)) fail('섬을 선택해 주세요.');
+    const result = {id:id(raw.id), island:raw.island, name:text(raw.name,'맛집 이름',200,true), location:text(raw.location || '','위치',500), menu:text(raw.menu || '','추천 메뉴',500), note:text(raw.note || '','메모',5000), url:text(raw.url || '','링크',2000)};
+    if (result.url) {
+      let parsed; try { parsed = new URL(result.url); } catch { fail('올바른 링크를 입력해 주세요.'); }
+      if (!['https:','http:'].includes(parsed.protocol)) fail('http 또는 https 링크를 입력해 주세요.');
+    }
+    return result;
+  }
+  function upsertRestaurant(raw, input) {
+    const data=validateData(raw), item=validateRestaurant(input);
+    data.restaurants ||= [];
+    const index=data.restaurants.findIndex(r=>r.id===item.id);
+    if(index<0)data.restaurants.push(item); else data.restaurants[index]=item;
+    return data;
+  }
+  function removeRestaurant(raw, restaurantId) {
+    const data=validateData(raw); data.restaurants=(data.restaurants || []).filter(r=>r.id!==restaurantId); return data;
   }
   function findTrip(data, tripId) {
     const trip = data.trips.find(item => item.id === tripId);
@@ -230,5 +255,5 @@
     return new Date(Date.parse(`${date}T00:00:00Z`) + offset * 86400000).toISOString().slice(0, 10);
   }
   const dayCount = (start, end) => Math.round((Date.parse(`${end}T00:00:00Z`) - Date.parse(`${start}T00:00:00Z`)) / 86400000) + 1;
-  return { categories, eventCategory, upsertStay, removeStay, calendarDays, calendarWeeks, timeZones, eventInstant, compareEvents, parseMoney, tripCosts, emptyData, validDate, validateTrip, validateEvent, validateData, upsertTrip, upsertEvent, removeTrip, removeEvent, shiftDate, dayCount };
+  return { islands, upsertRestaurant, removeRestaurant, categories, eventCategory, upsertStay, removeStay, calendarDays, calendarWeeks, timeZones, eventInstant, compareEvents, parseMoney, tripCosts, emptyData, validDate, validateTrip, validateEvent, validateData, upsertTrip, upsertEvent, removeTrip, removeEvent, shiftDate, dayCount };
 }));
