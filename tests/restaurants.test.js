@@ -19,3 +19,12 @@ test('restaurant validation rejects unsafe links, unknown islands, empty names a
  assert.throws(()=>C.validateData({...C.emptyData(),restaurants:{}}));
  for(const island of Object.keys(C.islands))assert.equal(C.upsertRestaurant(C.emptyData(),{...item,island}).restaurants[0].island,island);
 });
+test('restaurant coordinates survive updates and reject invalid locations',()=>{
+ const mapLocation={lat:20.89,lon:-156.47,label:'Maui restaurant'};
+ let data=C.upsertRestaurant(C.emptyData(),{...item,island:'maui',mapLocation});
+ data=C.upsertRestaurant(data,{...data.restaurants[0],note:'수정된 메모'});
+ assert.deepEqual(C.validateData(JSON.parse(JSON.stringify(data))).restaurants[0].mapLocation,mapLocation);
+ assert.equal(C.upsertRestaurant(C.emptyData(),item).restaurants[0].mapLocation,null);
+ for(const location of [{lat:91,lon:0,label:'bad'},{lat:0,lon:181,label:'bad'},{lat:NaN,lon:0,label:'bad'},{lat:0,lon:0,label:''}])assert.throws(()=>C.upsertRestaurant(C.emptyData(),{...item,mapLocation:location}));
+ assert.equal(C.islands.bigisland,'빅아일랜드');
+});

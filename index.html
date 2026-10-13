@@ -9,7 +9,7 @@
   <title>여행노트 · 나만의 여행 계획</title>
   <link rel="icon" href="favicon-blue.svg" type="image/svg+xml">
   <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
-  <link rel="stylesheet" href="style.css?v=restaurants-1">
+  <link rel="stylesheet" href="style.css?v=restaurant-maps-1">
   <script src="core.js" defer></script>
   <script src="crypto.js" defer></script>
   <script src="sync.js" defer></script>
@@ -58,6 +58,9 @@
             <div class="section-label"><div><p class="eyebrow">ISLAND FOOD NOTES</p><h2 id="restaurantsTitle">맛집 리스트</h2></div><button id="newRestaurantBtn" class="primary">＋ 맛집 등록</button></div>
             <p class="hint">섬별로 가고 싶은 맛집을 모아보세요. 등록·수정하면 자동 저장됩니다.</p>
             <div id="islandTabs" class="detail-tabs" role="tablist" aria-label="맛집 섬 선택"></div>
+            <div class="section-label"><p id="restaurantMapStatus" class="hint" role="status"></p><button id="restaurantFitMapBtn" class="quiet">섬 전체 보기</button></div>
+            <div id="restaurantMap" aria-label="섬별 맛집 지도"></div>
+            <p class="hint">맛집을 등록한 뒤 아래에서 장소를 검색하고 결과를 선택하거나, ‘지도에서 지정’을 눌러 위치를 클릭하세요. 지정한 위치는 자동 저장됩니다. 검색어는 OpenStreetMap에 전달됩니다.</p>
             <div id="restaurantList" role="tabpanel" tabindex="0"></div>
           </section>
           <section id="noTrip" class="empty-state"><span class="empty-symbol" aria-hidden="true">↗</span><h2>어디로 떠나볼까요?</h2><p>목적지와 날짜를 정하고<br>나만의 여행 계획을 채워보세요.</p><button id="firstTripBtn" class="primary">첫 여행 만들기</button></section>
@@ -99,7 +102,7 @@
   <dialog id="restaurantDialog" aria-labelledby="restaurantDialogTitle"><form id="restaurantForm">
     <div class="dialog-head"><h2 id="restaurantDialogTitle">맛집 등록</h2><button type="button" data-close="restaurantDialog" class="icon-btn" aria-label="닫기">×</button></div>
     <input id="restaurantId" type="hidden">
-    <label for="restaurantIsland">섬</label><select id="restaurantIsland"><option value="oahu">오하우</option><option value="maui">마우이</option><option value="bigisland">빅아이랜드</option></select>
+    <label for="restaurantIsland">섬</label><select id="restaurantIsland"><option value="oahu">오하우</option><option value="maui">마우이</option><option value="bigisland">빅아일랜드</option></select>
     <label for="restaurantName">맛집 이름</label><input id="restaurantName" required maxlength="200">
     <label for="restaurantLocation">위치·주소 · 선택</label><input id="restaurantLocation" maxlength="500">
     <label for="restaurantMenu">추천 메뉴 · 선택</label><input id="restaurantMenu" maxlength="500">

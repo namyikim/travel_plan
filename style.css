@@ -35,3 +35,5 @@ select{font:inherit;width:100%;padding:12px 14px;border:1px solid var(--line);bo
 @media(max-width:700px){.map-leg-time{margin:0 2px;padding:10px}.map-leg-caption{flex-basis:100%}.map-leg-input{width:105px}}
 
 #restaurantsBtn{margin-bottom:24px;text-align:left}#restaurantsBtn[aria-pressed="true"]{background:#2463d4;color:white}.restaurant-card{background:white;border:1px solid #dce5f2;border-radius:16px;padding:22px;margin:16px 0;overflow-wrap:anywhere}.restaurant-card h3{margin:0}.restaurant-card .event-note{white-space:pre-wrap}#restaurantsPanel>.section-label{gap:12px;flex-wrap:wrap}#islandTabs{margin-top:24px}
+
+#restaurantMap{height:420px;border:1px solid #dce5f2;border-radius:16px;z-index:0}@media(max-width:600px){#restaurantMap{height:320px}}

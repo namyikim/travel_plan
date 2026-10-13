@@ -13,8 +13,13 @@
     if(events.some(event=>['flight','ferry'].includes(C.eventCategory(event)))) throw new Error('비행기·배 일정은 자동차 경로 대신 점선으로 확인해 주세요.');
     return `https://router.project-osrm.org/route/v1/driving/${events.map(e=>`${e.mapLocation.lon},${e.mapLocation.lat}`).join(';')}?overview=full&geometries=geojson&steps=false`;
   }
-  function create({onLocation,onEdit,onTravelTime,isBusy}){
-    const $=id=>document.getElementById(id);
+  function create({onLocation,onEdit,onTravelTime,isBusy,restaurants=false}){
+    const ids=restaurants?{dayMap:'restaurantMap',mapStatus:'restaurantMapStatus',mapStops:'restaurantList',fitMapBtn:'restaurantFitMapBtn'}:{};
+    const $=id=>document.getElementById(ids[id] || id);
+    let island='oahu';
+    const islandViews={oahu:[[21.48,-157.96],10],maui:[[20.8,-156.32],10],bigisland:[[19.65,-155.5],9]};
+    const islandQuery={oahu:'Oahu Hawaii',maui:'Maui Hawaii',bigisland:'Hawaii Island'};
+    function islandView(){map.setView(...islandViews[island]);}
     const el=(tag,cls,text)=>{const n=document.createElement(tag);if(cls)n.className=cls;if(text!==undefined)n.textContent=text;return n;};
     const button=(text,handler)=>{const b=el('button','quiet',text);b.type='button';b.addEventListener('click',handler);return b;};
     let map=null,layer=null,events=[],generation=0,signature='',pick=null,controller=null,routeLayer=null,lastSearch=0,searchBusy=false,routeBusy=false;
@@ -41,9 +46,9 @@
         if(!location){previous=null;previousEvent=null;return;}
         const point=[location.lat,location.lon];
         const icon=L.divIcon({className:'route-pin',html:String(index+1),iconSize:[30,30],iconAnchor:[15,15]});
-        const popup=el('div','');popup.append(el('strong','',`${index+1}. ${event.place}`),el('p','',`${event.time || '시간 미정'} · ${C.timeZones[event.timeZone]}`),el('p','',location.label));
+        const popup=el('div','');popup.append(el('strong','',`${index+1}. ${event.place}`),el('p','',restaurants ? event.menu || '' : `${event.time || '시간 미정'} · ${C.timeZones[event.timeZone]}`),el('p','',location.label));
         L.marker(point,{icon,title:`${index+1}. ${event.place}`}).bindPopup(popup).addTo(layer);
-        if(previous){
+        if(previous && !restaurants){
           L.polyline([previous,point],{color:'#2463d4',weight:3,dashArray:'6 8'}).addTo(layer);
           const minutes=legMinutes(previousEvent,event);
           if(minutes!==null){
@@ -55,14 +60,17 @@
         }
         previous=point;previousEvent=event;
       });
-      if(layer.getLayers().length)map.fitBounds(layer.getBounds(),{padding:[35,35],maxZoom:14});
+      if(restaurants)islandView();
+      else if(layer.getLayers().length)map.fitBounds(layer.getBounds(),{padding:[35,35],maxZoom:14});
       else map.setView(events[0]?.timeZone === 'Asia/Seoul' ? [37.56,126.97] : [21.3,-157.8],9);
       const missing=events.filter(e=>!e.mapLocation).length;
+      if(restaurants){status(!events.length?'등록한 맛집이 없어요. 맛집 등록으로 추가해 주세요.':`${events.length}개 맛집 · 지도 표시 ${events.length-missing}개${missing ? ` · 위치 미지정 ${missing}개` : ''}`);return;}
       status(!events.length ? '이 날짜에는 일정이 없습니다.' : missing ? `${missing}개 일정의 위치를 지정해 주세요. 점선은 위치가 지정된 연속 일정만 연결합니다.` : '번호는 방문 순서입니다. 점선은 장소 사이 연결이며 실제 도로 경로가 아닙니다.');
     }
     async function search(event,query,results,searchButton){
       if(searchBusy || isBusy())return;
       query=query.trim();if(!query){status('검색할 장소명이나 주소를 입력해 주세요.');return;}
+      if(restaurants)query=`${query} ${islandQuery[island]}`;
       const current=generation;searchBusy=true;searchButton.disabled=true;results.replaceChildren();
       status('장소를 검색하고 있어요…');
       try{
@@ -87,7 +95,7 @@
     function list(){
       $('mapStops').replaceChildren();
       events.forEach((event,index)=>{
-        if(index>0){
+        if(index>0 && !restaurants){
           const from=events[index-1],minutes=legMinutes(from,event);
           const leg=el('div','map-leg-time');
           const label=el('label','map-leg-caption',`${index} → ${index+1} 지점 이동시간`);
@@ -105,16 +113,20 @@
           $('mapStops').append(leg);
         }
         const card=el('article','map-stop'),heading=el('div','section-label');
-        heading.append(el('strong','',`${index+1}. ${event.time || '시간 미정'} · ${event.place}`),button('일정 수정',()=>{if(!isBusy())onEdit(event);}));card.append(heading);
+        heading.append(el('strong','',restaurants ? `${index+1}. ${event.place}` : `${index+1}. ${event.time || '시간 미정'} · ${event.place}`),button(restaurants?'맛집 수정':'일정 수정',()=>{if(!isBusy())onEdit(event);}));card.append(heading);
+        if(restaurants){
+          for(const [label,value] of [['위치',event.location],['추천 메뉴',event.menu],['메모',event.note]])if(value)card.append(el('p','event-note',`${label} · ${value}`));
+          if(event.url){const a=el('a','','예약·참고 링크 ↗');a.href=event.url;a.target='_blank';a.rel='noopener noreferrer';card.append(a);}
+        }
         if(event.mapLocation)card.append(el('p','hint',`📍 ${event.mapLocation.label}`));
-        const row=el('div','map-search'),input=el('input','');input.type='search';input.maxLength=300;input.value=event.mapLocation?.label || event.place;input.setAttribute('aria-label',`${event.place}의 지도 검색어`);input.placeholder='정확한 장소명 또는 주소 (영문 가능)';
+        const row=el('div','map-search'),input=el('input','');input.type='search';input.maxLength=300;input.value=event.mapLocation?.label || (restaurants ? `${event.place} ${event.location || ''}` : event.place);input.setAttribute('aria-label',`${event.place}의 지도 검색어`);input.placeholder='정확한 장소명 또는 주소 (영문 가능)';
         const results=el('div','map-results'),find=button('장소 검색',()=>search(event,input.value,results,find));
         input.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();search(event,input.value,results,find);}});
         row.append(input,find);card.append(row,results);
         const actions=el('div','actions');actions.append(button('지도에서 지정',()=>{if(isBusy())return;pick=event;status(`‘${event.place}’ 위치를 지도에서 클릭하세요. 지도를 확대·이동해 정확한 지점을 선택하세요.`);$('dayMap').scrollIntoView({behavior:'smooth',block:'center'});}));
         if(event.mapLocation)actions.append(button('위치 지우기',()=>{if(!isBusy())onLocation(event.id,null);}));
         const next=events[index+1];
-        if(event.mapLocation && next?.mapLocation){const a=el('a','quiet','다음 장소 길찾기 ↗');const origin=`${event.mapLocation.lat},${event.mapLocation.lon}`,destination=`${next.mapLocation.lat},${next.mapLocation.lon}`;a.href=`https://www.google.com/maps/dir/?${new URLSearchParams({api:'1',origin,destination})}`;a.target='_blank';a.rel='noopener noreferrer';actions.append(a);}
+        if(!restaurants && event.mapLocation && next?.mapLocation){const a=el('a','quiet','다음 장소 길찾기 ↗');const origin=`${event.mapLocation.lat},${event.mapLocation.lon}`,destination=`${next.mapLocation.lat},${next.mapLocation.lon}`;a.href=`https://www.google.com/maps/dir/?${new URLSearchParams({api:'1',origin,destination})}`;a.target='_blank';a.rel='noopener noreferrer';actions.append(a);}
         card.append(actions);$('mapStops').append(card);
       });
     }
@@ -144,17 +156,17 @@
     }
     function update(trip,date){
       try{
-        ensure();const selected=dayEvents(trip,date),next=JSON.stringify([trip.id,date,selected]);
+        ensure();if(restaurants)island=trip.id;const selected=restaurants?trip.events:dayEvents(trip,date),next=JSON.stringify([trip.id,date,selected]);
         if(next!==signature){
           generation++;controller?.abort();controller=new AbortController();pick=null;searchBusy=false;routeBusy=false;
           if(routeLayer)map.removeLayer(routeLayer);routeLayer=null;
-          signature=next;events=selected;paint();list();$('roadRouteBtn').disabled=false;
+          signature=next;events=selected;paint();list();if(!restaurants)$('roadRouteBtn').disabled=false;
         }
         map.invalidateSize();
       }catch(error){status(error.message);}
     }
-    $('roadRouteBtn').addEventListener('click',route);
-    $('fitMapBtn').addEventListener('click',()=>{if(map&&layer?.getLayers().length)map.fitBounds(layer.getBounds(),{padding:[35,35],maxZoom:14});});
+    if(!restaurants)$('roadRouteBtn').addEventListener('click',route);
+    $('fitMapBtn').addEventListener('click',()=>{if(restaurants&&map){islandView();return;}if(map&&layer?.getLayers().length)map.fitBounds(layer.getBounds(),{padding:[35,35],maxZoom:14});});
     return {update,clear};
   }
   return {dayEvents,legMinutes,formatMinutes,routeURL,create};

@@ -28,6 +28,16 @@
       markChanged();
     }
   });
+  const restaurantMap = TravelMap.create({
+    restaurants:true, isBusy:()=>pending,
+    onEdit:item=>openRestaurant(item),
+    onLocation:(id,location)=>{
+      if(pending || !session.snapshot().unlocked)return;
+      const item=(session.snapshot().data.restaurants || []).find(r=>r.id===id);
+      if(!item)return;
+      session.update(data=>C.upsertRestaurant(data,{...item,mapLocation:location}));markChanged();
+    }
+  });
   let calendarMonth = '', calendarTrip = '';
   let savingChanges = false;
   let saveMessage = '저장된 기록을 불러왔어요.';
@@ -94,6 +104,7 @@
     $('restaurantsPanel').hidden = mainView !== 'restaurants';
     $('restaurantsBtn').setAttribute('aria-pressed',String(mainView === 'restaurants'));
     if(mainView === 'restaurants') { $('noTrip').hidden=true; $('tripDetail').hidden=true; mapView.clear(); renderRestaurants(); return; }
+    restaurantMap.clear();
     $('noTrip').hidden = !!trip; $('tripDetail').hidden = !trip;
     if (!trip) { $('timeline').replaceChildren(); mapView.clear(); return; }
     if (!C.validDate(selectedDate) || selectedDate < trip.start || selectedDate > trip.end) selectedDate = trip.start;
@@ -142,22 +153,10 @@
       }); $('islandTabs').append(tab);
     }
     $('restaurantList').setAttribute('aria-labelledby',`island-${restaurantIsland}`);
-    $('restaurantList').replaceChildren();
     const items=(session.snapshot().data.restaurants || []).filter(r=>r.island===restaurantIsland);
-    if(!items.length) $('restaurantList').append(node('p','day-empty','아직 등록한 맛집이 없어요. ＋ 맛집 등록으로 추가해 주세요.'));
-    for(const item of items) {
-      const card=node('article','restaurant-card'), head=node('div','section-label');
-      const edit=action('수정','quiet',()=>openRestaurant(item));edit.disabled=pending;
-      head.append(node('h3','',item.name),edit);card.append(head);
-      if(item.location)card.append(node('p','event-info',`📍 ${item.location}`));
-      if(item.menu)card.append(node('p','event-info',`추천 메뉴 · ${item.menu}`));
-      if(item.note)card.append(node('p','event-note',item.note));
-      const links=node('div','event-links');
-      const islandName={oahu:'Oahu',maui:'Maui',bigisland:'Hawaii Island'}[item.island];
-      links.append(link('지도에서 찾기 ↗',`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${islandName} ${item.name} ${item.location}`)}`));
-      if(item.url)links.append(link('예약·참고 링크 ↗',item.url));card.append(links);$('restaurantList').append(card);
-    }
+    restaurantMap.update({id:restaurantIsland,events:items.map(item=>({...item,place:item.name}))},restaurantIsland);
   }
+
   function openRestaurant(item) {
     if(pending)return;
     $('restaurantForm').reset();$('restaurantFormError').textContent='';
@@ -173,6 +172,8 @@
     try {
       const input={id:$('restaurantId').value || crypto.randomUUID(),island:$('restaurantIsland').value};
       for(const [field,key] of [['Name','name'],['Location','location'],['Menu','menu'],['Url','url'],['Note','note']])input[key]=$('restaurant'+field).value;
+      const previous=(session.snapshot().data.restaurants || []).find(r=>r.id===input.id);
+      input.mapLocation=previous && previous.island===input.island && previous.name===input.name.trim() && previous.location===input.location.trim() ? previous.mapLocation : null;
       session.update(data=>C.upsertRestaurant(data,input)); restaurantIsland=input.island; draft=false;$('restaurantDialog').close();markChanged();
     } catch(error){$('restaurantFormError').textContent=error.message;}
   });
@@ -279,7 +280,7 @@
     if (id === 'settingsDialog') $('passwordForm').reset();
   }
   function clearSensitiveDOM() {
-    mapView.clear(); detailView='list'; $('mapDateLabel').textContent='';
+    restaurantMap.clear(); mapView.clear(); detailView='list'; $('mapDateLabel').textContent='';
     for (const id of ['restaurantList','restaurantFormError','calendarGrid','stayList','calendarMonth','stayFormError','tripList','timeline','tripDestination','tripTitle','tripMeta','tripCosts','dayNumber','dayHeading','eventCount','connectedRepo','saveStatus','appError','settingsStatus','settingsError','tripFormError','eventFormError']) $(id).replaceChildren();
     for (const id of ['restaurantForm','tripForm','eventForm','stayForm','setupForm','unlockForm','passwordForm']) $(id).reset();
     for (const dialog of document.querySelectorAll('dialog')) if (dialog.open) dialog.close();
