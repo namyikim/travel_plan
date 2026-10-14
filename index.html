@@ -9,7 +9,7 @@
   <title>여행노트 · 나만의 여행 계획</title>
   <link rel="icon" href="favicon-blue.svg" type="image/svg+xml">
   <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
-  <link rel="stylesheet" href="style.css?v=restaurant-maps-1">
+  <link rel="stylesheet" href="style.css?v=restaurant-menu-position-1">
   <script src="core.js" defer></script>
   <script src="crypto.js" defer></script>
   <script src="sync.js" defer></script>
@@ -52,7 +52,7 @@
       <div class="save-bar"><p id="saveStatus" role="status">저장된 기록을 불러왔어요.</p><div class="actions"><button id="reloadBtn" class="quiet">새로 불러오기</button><button id="retrySaveBtn" class="primary" hidden>저장 다시 시도</button></div></div>
       <p id="appError" class="error" role="alert"></p>
       <div class="planner-layout">
-        <aside class="trip-sidebar"><button id="restaurantsBtn" class="secondary wide" aria-pressed="false">🍽️ 맛집 리스트</button><div class="section-label"><h2>나의 여행</h2><button id="newTripBtn" class="small-btn">＋ 새 여행</button></div><div id="tripList" class="trip-list"></div><p class="sidebar-note">여행의 시작은<br>작은 계획 하나에서.</p></aside>
+        <aside class="trip-sidebar"><div class="section-label"><h2>나의 여행</h2><button id="newTripBtn" class="small-btn">＋ 새 여행</button></div><div id="tripList" class="trip-list"></div><button id="restaurantsBtn" class="secondary wide" aria-pressed="false">🍽️ 맛집 리스트</button><p class="sidebar-note">여행의 시작은<br>작은 계획 하나에서.</p></aside>
         <div class="planner-main">
           <section id="restaurantsPanel" hidden aria-labelledby="restaurantsTitle">
             <div class="section-label"><div><p class="eyebrow">ISLAND FOOD NOTES</p><h2 id="restaurantsTitle">맛집 리스트</h2></div><button id="newRestaurantBtn" class="primary">＋ 맛집 등록</button></div>
