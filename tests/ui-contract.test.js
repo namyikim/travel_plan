@@ -9,7 +9,7 @@ test('initial HTML exposes only lock screen and sets a strict script policy', ()
   assert.match(html, /script-src 'self'/);
   assert.doesNotMatch(html, /<script[^>]*src="https?:/);
   assert.doesNotMatch(html, /\son(?:click|submit|load)=/);
-  for (const src of [...html.matchAll(/<script[^>]*src="([^"]+)"/g)]) assert.ok(fs.existsSync(path.join(__dirname, '..', src[1])));
+  for (const src of [...html.matchAll(/<script[^>]*src="([^"]+)"/g)]) assert.ok(fs.existsSync(path.join(__dirname, '..', src[1].split('?')[0])));
 });
 test('UI never persists plaintext secrets or renders user HTML', () => {
   const app = fs.readFileSync(path.join(__dirname, '../app.js'), 'utf8');

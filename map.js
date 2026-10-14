@@ -28,7 +28,7 @@
     function ensure(){
       if(map)return;
       if(!globalThis.L)throw new Error('지도를 불러오지 못했어요. 새로고침해 주세요.');
-      map=L.map('dayMap',{scrollWheelZoom:false}).setView([21.3,-157.8],9);
+      map=L.map($('dayMap'),{scrollWheelZoom:false}).setView([21.3,-157.8],9);
       L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,referrerPolicy:'strict-origin-when-cross-origin',attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'}).addTo(map).on('tileerror',()=>status('지도 배경을 불러오지 못했어요. 인터넷 연결을 확인해 주세요. 장소 목록은 계속 사용할 수 있습니다.'));
       layer=L.featureGroup().addTo(map);
       map.on('click',event=>{
