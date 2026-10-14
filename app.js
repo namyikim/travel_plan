@@ -144,7 +144,7 @@
   const placeLabel=()=>mainView==='markets'?'마트':'맛집';
   function renderRestaurants() {
     const label=placeLabel();
-    $('restaurantsTitle').textContent=mainView==='markets'?'마트':'맛집 리스트';
+    $('restaurantsTitle').textContent=mainView==='markets'?'마트':'맛집';
     $('newRestaurantBtn').textContent=`＋ ${label} 등록`;
     $('placesHelp').textContent=`섬별로 가고 싶은 ${label}를 모아보세요. 등록·수정하면 자동 저장됩니다.`;
     $('islandTabs').replaceChildren();
