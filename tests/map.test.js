@@ -30,3 +30,15 @@ test('manual travel time belongs to the exact previous stop and has readable lab
  assert.equal(M.legMinutes(first,{...second,date:t.end}),null);
  assert.equal(M.legMinutes(first,{...second,travelMinutes:null}),null);
 });
+test('restaurant address searches preserve the address and bias the island separately',()=>{
+ const M=require('../map.js');
+ const address='123 Example Road, Honolulu, HI 96815';
+ const url=M.searchURL(address,'oahu');
+ assert.equal(url.searchParams.get('q'),address);
+ assert.equal(url.searchParams.get('countrycodes'),'us');
+ assert.equal(url.searchParams.get('bounded'),'0');
+ assert.ok(url.searchParams.get('viewbox'));
+ assert.equal(M.restaurantSearchText({place:'식당 이름',location:address}),address);
+ assert.equal(M.restaurantSearchText({place:'Restaurant',location:' '}),'Restaurant');
+ assert.equal(M.searchURL('서울역').searchParams.has('countrycodes'),false);
+});

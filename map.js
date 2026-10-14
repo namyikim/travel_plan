@@ -13,12 +13,23 @@
     if(events.some(event=>['flight','ferry'].includes(C.eventCategory(event)))) throw new Error('비행기·배 일정은 자동차 경로 대신 점선으로 확인해 주세요.');
     return `https://router.project-osrm.org/route/v1/driving/${events.map(e=>`${e.mapLocation.lon},${e.mapLocation.lat}`).join(';')}?overview=full&geometries=geojson&steps=false`;
   }
+  function searchURL(query, island) {
+    const url=new URL('https://nominatim.openstreetmap.org/search');
+    url.search=new URLSearchParams({q:query.trim(),format:'jsonv2',limit:'5','accept-language':'ko,en'});
+    const bounds={oahu:'-158.4,21.8,-157.6,21.2',maui:'-156.8,21.1,-155.9,20.5',bigisland:'-156.2,20.4,-154.7,18.8'};
+    if(Object.hasOwn(bounds,island)) {
+      url.searchParams.set('countrycodes','us');
+      url.searchParams.set('viewbox',bounds[island]);
+      url.searchParams.set('bounded','0');
+    }
+    return url;
+  }
+  const restaurantSearchText=event=>event.location?.trim() || event.place;
   function create({onLocation,onEdit,onTravelTime,isBusy,restaurants=false}){
     const ids=restaurants?{dayMap:'restaurantMap',mapStatus:'restaurantMapStatus',mapStops:'restaurantList',fitMapBtn:'restaurantFitMapBtn'}:{};
     const $=id=>document.getElementById(ids[id] || id);
     let island='oahu';
     const islandViews={oahu:[[21.48,-157.96],10],maui:[[20.8,-156.32],10],bigisland:[[19.65,-155.5],9]};
-    const islandQuery={oahu:'Oahu Hawaii',maui:'Maui Hawaii',bigisland:'Hawaii Island'};
     function islandView(){map.setView(...islandViews[island]);}
     const el=(tag,cls,text)=>{const n=document.createElement(tag);if(cls)n.className=cls;if(text!==undefined)n.textContent=text;return n;};
     const button=(text,handler)=>{const b=el('button','quiet',text);b.type='button';b.addEventListener('click',handler);return b;};
@@ -70,21 +81,21 @@
     async function search(event,query,results,searchButton){
       if(searchBusy || isBusy())return;
       query=query.trim();if(!query){status('검색할 장소명이나 주소를 입력해 주세요.');return;}
-      if(restaurants)query=`${query} ${islandQuery[island]}`;
+      const cacheKey=JSON.stringify([restaurants?island:null,query]);
       const current=generation;searchBusy=true;searchButton.disabled=true;results.replaceChildren();
       status('장소를 검색하고 있어요…');
       try{
-        let found=cache.get(query);
+        let found=cache.get(cacheKey);
         if(!found){
           const wait=Math.max(0,1100-(Date.now()-lastSearch));if(wait)await new Promise(resolve=>setTimeout(resolve,wait));
           if(current!==generation)return;
           lastSearch=Date.now();
-          const url=new URL('https://nominatim.openstreetmap.org/search');url.search=new URLSearchParams({q:query,format:'jsonv2',limit:'5','accept-language':'ko,en'});
+          const url=searchURL(query,restaurants?island:undefined);
           const response=await fetch(url,{signal:AbortSignal.any([controller.signal,AbortSignal.timeout(15000)]),referrerPolicy:'strict-origin-when-cross-origin'});
           if(!response.ok)throw new Error('장소 검색 서비스에 연결하지 못했어요. 잠시 후 다시 시도하거나 지도에서 직접 지정해 주세요.');
           const data=await response.json();if(!Array.isArray(data))throw new Error('장소 검색 결과를 읽지 못했어요.');
           found=data.map(item=>({lat:Number(item.lat),lon:Number(item.lon),label:String(item.display_name || '').slice(0,1000)})).filter(p=>Number.isFinite(p.lat)&&Math.abs(p.lat)<=90&&Number.isFinite(p.lon)&&Math.abs(p.lon)<=180&&p.label);
-          if(current!==generation)return;cache.set(query,found);
+          if(current!==generation)return;cache.set(cacheKey,found);
         }
         if(current!==generation)return;
         status(found.length?'주소를 확인하고 해당 장소를 선택하세요.':'검색 결과가 없어요. 영문 장소명·주소로 검색하거나 지도에서 직접 지정해 주세요.');
@@ -119,7 +130,7 @@
           if(event.url){const a=el('a','','예약·참고 링크 ↗');a.href=event.url;a.target='_blank';a.rel='noopener noreferrer';card.append(a);}
         }
         if(event.mapLocation)card.append(el('p','hint',`📍 ${event.mapLocation.label}`));
-        const row=el('div','map-search'),input=el('input','');input.type='search';input.maxLength=300;input.value=event.mapLocation?.label || (restaurants ? `${event.place} ${event.location || ''}` : event.place);input.setAttribute('aria-label',`${event.place}의 지도 검색어`);input.placeholder='정확한 장소명 또는 주소 (영문 가능)';
+        const row=el('div','map-search'),input=el('input','');input.type='search';input.maxLength=300;input.value=event.mapLocation?.label || (restaurants ? restaurantSearchText(event) : event.place);input.setAttribute('aria-label',`${event.place}의 지도 검색어`);input.placeholder='정확한 장소명 또는 주소 (영문 가능)';
         const results=el('div','map-results'),find=button('장소 검색',()=>search(event,input.value,results,find));
         input.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();search(event,input.value,results,find);}});
         row.append(input,find);card.append(row,results);
@@ -169,5 +180,5 @@
     $('fitMapBtn').addEventListener('click',()=>{if(restaurants&&map){islandView();return;}if(map&&layer?.getLayers().length)map.fitBounds(layer.getBounds(),{padding:[35,35],maxZoom:14});});
     return {update,clear};
   }
-  return {dayEvents,legMinutes,formatMinutes,routeURL,create};
+  return {searchURL,restaurantSearchText,dayEvents,legMinutes,formatMinutes,routeURL,create};
 }));
