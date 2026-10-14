@@ -28,7 +28,7 @@
   function create({onLocation,onEdit,onTravelTime,isBusy,restaurants=false}){
     const ids=restaurants?{dayMap:'restaurantMap',mapStatus:'restaurantMapStatus',mapStops:'restaurantList',fitMapBtn:'restaurantFitMapBtn'}:{};
     const $=id=>document.getElementById(ids[id] || id);
-    let island='oahu';
+    let island='oahu',placeLabel='맛집';
     const islandViews={oahu:[[21.48,-157.96],10],maui:[[20.8,-156.32],10],bigisland:[[19.65,-155.5],9]};
     function islandView(){map.setView(...islandViews[island]);}
     const el=(tag,cls,text)=>{const n=document.createElement(tag);if(cls)n.className=cls;if(text!==undefined)n.textContent=text;return n;};
@@ -75,7 +75,7 @@
       else if(layer.getLayers().length)map.fitBounds(layer.getBounds(),{padding:[35,35],maxZoom:14});
       else map.setView(events[0]?.timeZone === 'Asia/Seoul' ? [37.56,126.97] : [21.3,-157.8],9);
       const missing=events.filter(e=>!e.mapLocation).length;
-      if(restaurants){status(!events.length?'등록한 맛집이 없어요. 맛집 등록으로 추가해 주세요.':`${events.length}개 맛집 · 지도 표시 ${events.length-missing}개${missing ? ` · 위치 미지정 ${missing}개` : ''}`);return;}
+      if(restaurants){status(!events.length?`등록한 ${placeLabel} 항목이 없어요. 등록 버튼으로 추가해 주세요.`:`${events.length}개 ${placeLabel} · 지도 표시 ${events.length-missing}개${missing ? ` · 위치 미지정 ${missing}개` : ''}`);return;}
       status(!events.length ? '이 날짜에는 일정이 없습니다.' : missing ? `${missing}개 일정의 위치를 지정해 주세요. 점선은 위치가 지정된 연속 일정만 연결합니다.` : '번호는 방문 순서입니다. 점선은 장소 사이 연결이며 실제 도로 경로가 아닙니다.');
     }
     async function search(event,query,results,searchButton){
@@ -124,9 +124,9 @@
           $('mapStops').append(leg);
         }
         const card=el('article','map-stop'),heading=el('div','section-label');
-        heading.append(el('strong','',restaurants ? `${index+1}. ${event.place}` : `${index+1}. ${event.time || '시간 미정'} · ${event.place}`),button(restaurants?'맛집 수정':'일정 수정',()=>{if(!isBusy())onEdit(event);}));card.append(heading);
+        heading.append(el('strong','',restaurants ? `${index+1}. ${event.place}` : `${index+1}. ${event.time || '시간 미정'} · ${event.place}`),button(restaurants?`${placeLabel} 수정`:'일정 수정',()=>{if(!isBusy())onEdit(event);}));card.append(heading);
         if(restaurants){
-          for(const [label,value] of [['위치',event.location],['추천 메뉴',event.menu],['메모',event.note]])if(value)card.append(el('p','event-note',`${label} · ${value}`));
+          for(const [label,value] of [['위치',event.location],[placeLabel==='마트'?'구매할 품목':'추천 메뉴',event.menu],['메모',event.note]])if(value)card.append(el('p','event-note',`${label} · ${value}`));
           if(event.url){const a=el('a','','예약·참고 링크 ↗');a.href=event.url;a.target='_blank';a.rel='noopener noreferrer';card.append(a);}
         }
         if(event.mapLocation)card.append(el('p','hint',`📍 ${event.mapLocation.label}`));
@@ -167,7 +167,7 @@
     }
     function update(trip,date){
       try{
-        ensure();if(restaurants)island=trip.id;const selected=restaurants?trip.events:dayEvents(trip,date),next=JSON.stringify([trip.id,date,selected]);
+        ensure();if(restaurants){island=trip.id;placeLabel=trip.placeLabel || '맛집';}const selected=restaurants?trip.events:dayEvents(trip,date),next=JSON.stringify([trip.id,date,selected]);
         if(next!==signature){
           generation++;controller?.abort();controller=new AbortController();pick=null;searchBusy=false;routeBusy=false;
           if(routeLayer)map.removeLayer(routeLayer);routeLayer=null;

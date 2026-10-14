@@ -34,6 +34,8 @@ select{font:inherit;width:100%;padding:12px 14px;border:1px solid var(--line);bo
 .route-duration-marker span{display:block;width:max-content;min-width:70px;max-width:140px;position:relative;left:50%;transform:translateX(-50%);padding:4px 9px;border:2px solid #fff;border-radius:20px;background:#075f86;color:#fff;font-size:12px;line-height:19px;font-weight:800;text-align:center;white-space:nowrap;box-shadow:0 2px 9px #10344b70;pointer-events:none}
 @media(max-width:700px){.map-leg-time{margin:0 2px;padding:10px}.map-leg-caption{flex-basis:100%}.map-leg-input{width:105px}}
 
-#restaurantsBtn{margin-top:18px;margin-bottom:24px;text-align:left}#restaurantsBtn[aria-pressed="true"]{background:#2463d4;color:white}.restaurant-card{background:white;border:1px solid #dce5f2;border-radius:16px;padding:22px;margin:16px 0;overflow-wrap:anywhere}.restaurant-card h3{margin:0}.restaurant-card .event-note{white-space:pre-wrap}#restaurantsPanel>.section-label{gap:12px;flex-wrap:wrap}#islandTabs{margin-top:24px}
+#restaurantsBtn{margin-top:18px;margin-bottom:10px;text-align:left}#restaurantsBtn[aria-pressed="true"]{background:#2463d4;color:white}.restaurant-card{background:white;border:1px solid #dce5f2;border-radius:16px;padding:22px;margin:16px 0;overflow-wrap:anywhere}.restaurant-card h3{margin:0}.restaurant-card .event-note{white-space:pre-wrap}#restaurantsPanel>.section-label{gap:12px;flex-wrap:wrap}#islandTabs{margin-top:24px}
 
 #restaurantMap{height:420px;border:1px solid #dce5f2;border-radius:16px;z-index:0}@media(max-width:600px){#restaurantMap{height:320px}}
+
+#marketsBtn{margin-bottom:24px;text-align:left}#marketsBtn[aria-pressed="true"]{background:#2463d4;color:white}

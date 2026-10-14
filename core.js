@@ -204,7 +204,8 @@
   const islands = {oahu:'오하우', maui:'마우이', bigisland:'빅아일랜드'};
   function validateRestaurant(raw) {
     if (!raw || !Object.hasOwn(islands, raw.island)) fail('섬을 선택해 주세요.');
-    const result = {mapLocation:validateMapLocation(raw.mapLocation), id:id(raw.id), island:raw.island, name:text(raw.name,'맛집 이름',200,true), location:text(raw.location || '','위치',500), menu:text(raw.menu || '','추천 메뉴',500), note:text(raw.note || '','메모',5000), url:text(raw.url || '','링크',2000)};
+    if (raw.kind !== undefined && !['restaurant','market'].includes(raw.kind)) fail('장소 종류를 확인해 주세요.');
+    const result = {kind:raw.kind || 'restaurant', mapLocation:validateMapLocation(raw.mapLocation), id:id(raw.id), island:raw.island, name:text(raw.name,'맛집 이름',200,true), location:text(raw.location || '','위치',500), menu:text(raw.menu || '','추천 메뉴',500), note:text(raw.note || '','메모',5000), url:text(raw.url || '','링크',2000)};
     if (result.url) {
       let parsed; try { parsed = new URL(result.url); } catch { fail('올바른 링크를 입력해 주세요.'); }
       if (!['https:','http:'].includes(parsed.protocol)) fail('http 또는 https 링크를 입력해 주세요.');

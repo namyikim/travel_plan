@@ -101,9 +101,10 @@
     }
     const trip = trips.find(item => item.id === selectedTrip);
     document.body.classList.toggle('hawaii-theme', isHawaii(trip));
-    $('restaurantsPanel').hidden = mainView !== 'restaurants';
+    $('restaurantsPanel').hidden = !['restaurants','markets'].includes(mainView);
     $('restaurantsBtn').setAttribute('aria-pressed',String(mainView === 'restaurants'));
-    if(mainView === 'restaurants') { $('noTrip').hidden=true; $('tripDetail').hidden=true; mapView.clear(); renderRestaurants(); return; }
+    $('marketsBtn').setAttribute('aria-pressed',String(mainView === 'markets'));
+    if(['restaurants','markets'].includes(mainView)) { $('noTrip').hidden=true; $('tripDetail').hidden=true; mapView.clear(); renderRestaurants(); return; }
     restaurantMap.clear();
     $('noTrip').hidden = !!trip; $('tripDetail').hidden = !trip;
     if (!trip) { $('timeline').replaceChildren(); mapView.clear(); return; }
@@ -140,7 +141,12 @@
       content.append(links); card.append(node('div', 'event-time', event.time || '자유'), content); $('timeline').append(card);
     }
   }
+  const placeLabel=()=>mainView==='markets'?'마트':'맛집';
   function renderRestaurants() {
+    const label=placeLabel();
+    $('restaurantsTitle').textContent=mainView==='markets'?'마트':'맛집 리스트';
+    $('newRestaurantBtn').textContent=`＋ ${label} 등록`;
+    $('placesHelp').textContent=`섬별로 가고 싶은 ${label}를 모아보세요. 등록·수정하면 자동 저장됩니다.`;
     $('islandTabs').replaceChildren();
     const keys=Object.keys(C.islands);
     for(const [key,label] of Object.entries(C.islands)) {
@@ -153,8 +159,8 @@
       }); $('islandTabs').append(tab);
     }
     $('restaurantList').setAttribute('aria-labelledby',`island-${restaurantIsland}`);
-    const items=(session.snapshot().data.restaurants || []).filter(r=>r.island===restaurantIsland);
-    restaurantMap.update({id:restaurantIsland,events:items.map(item=>({...item,place:item.name}))},restaurantIsland);
+    const items=(session.snapshot().data.restaurants || []).filter(r=>r.island===restaurantIsland && (r.kind || 'restaurant')===(mainView==='markets'?'market':'restaurant'));
+    restaurantMap.update({id:restaurantIsland,placeLabel:label,events:items.map(item=>({...item,place:item.name}))},restaurantIsland+mainView);
   }
 
   function openRestaurant(item) {
@@ -162,15 +168,20 @@
     $('restaurantForm').reset();$('restaurantFormError').textContent='';
     for(const [field,key] of [['Id','id'],['Name','name'],['Location','location'],['Menu','menu'],['Url','url'],['Note','note']]) $('restaurant'+field).value=item?.[key] || '';
     $('restaurantIsland').value=item?.island || restaurantIsland;
-    $('restaurantDialogTitle').textContent=item?'맛집 수정':'맛집 등록';$('deleteRestaurantBtn').hidden=!item;
+    const label=placeLabel();
+    $('restaurantDialogTitle').textContent=`${label} ${item?'수정':'등록'}`;
+    document.querySelector('label[for="restaurantName"]').textContent=`${label} 이름`;
+    document.querySelector('label[for="restaurantMenu"]').textContent=mainView==='markets'?'구매할 품목 · 선택':'추천 메뉴 · 선택';
+    $('restaurantSubmitBtn').textContent=`${label} 반영`;$('deleteRestaurantBtn').textContent=`${label} 삭제`;$('deleteRestaurantBtn').hidden=!item;
     draft=false;$('restaurantDialog').showModal();$('restaurantName').focus();
   }
   $('restaurantsBtn').addEventListener('click',()=>{if(!pending){mainView='restaurants';render();}});
+  $('marketsBtn').addEventListener('click',()=>{if(!pending){mainView='markets';render();}});
   $('newRestaurantBtn').addEventListener('click',()=>openRestaurant());
   $('restaurantForm').addEventListener('submit',event=>{
     event.preventDefault();if(pending)return;
     try {
-      const input={id:$('restaurantId').value || crypto.randomUUID(),island:$('restaurantIsland').value};
+      const input={kind:mainView==='markets'?'market':'restaurant',id:$('restaurantId').value || crypto.randomUUID(),island:$('restaurantIsland').value};
       for(const [field,key] of [['Name','name'],['Location','location'],['Menu','menu'],['Url','url'],['Note','note']])input[key]=$('restaurant'+field).value;
       const previous=(session.snapshot().data.restaurants || []).find(r=>r.id===input.id);
       input.mapLocation=previous && previous.island===input.island && previous.name===input.name.trim() && previous.location===input.location.trim() ? previous.mapLocation : null;
@@ -178,7 +189,7 @@
     } catch(error){$('restaurantFormError').textContent=error.message;}
   });
   $('deleteRestaurantBtn').addEventListener('click',()=>{
-    if(pending || !confirm('이 맛집을 삭제할까요?'))return;
+    if(pending || !confirm(`이 ${placeLabel()} 항목을 삭제할까요?`))return;
     session.update(data=>C.removeRestaurant(data,$('restaurantId').value));draft=false;$('restaurantDialog').close();markChanged();
   });
   function renderDetailView(trip) {

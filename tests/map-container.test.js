@@ -14,7 +14,7 @@ test('restaurant and itinerary maps initialize in their own containers',()=>{
   const itinerary=M.create({isBusy:()=>false});
   itinerary.update({id:'trip',events:[]},'2027-02-11');
   assert.deepEqual(containers,['restaurantMap','dayMap']);
-  assert.match(elements.get('restaurantMapStatus').textContent,/등록한 맛집이 없어요/);
+  assert.match(elements.get('restaurantMapStatus').textContent,/등록한 맛집 항목이 없어요/);
   restaurant.clear();itinerary.clear();
  }finally{global.document=oldDocument;global.L=oldL;}
 });

@@ -28,3 +28,15 @@ test('restaurant coordinates survive updates and reject invalid locations',()=>{
  for(const location of [{lat:91,lon:0,label:'bad'},{lat:0,lon:181,label:'bad'},{lat:NaN,lon:0,label:'bad'},{lat:0,lon:0,label:''}])assert.throws(()=>C.upsertRestaurant(C.emptyData(),{...item,mapLocation:location}));
  assert.equal(C.islands.bigisland,'빅아일랜드');
 });
+test('markets and restaurants keep separate kinds through edits and serialization',()=>{
+ let data=C.upsertRestaurant(C.emptyData(),item);
+ data=C.upsertRestaurant(data,{...item,id:'market1',kind:'market',name:'Costco',menu:'생수',mapLocation:{lat:19.7,lon:-156,label:'마트'}});
+ data=C.validateData(JSON.parse(JSON.stringify(data)));
+ assert.equal(data.restaurants[0].kind,'restaurant');
+ assert.equal(data.restaurants[1].kind,'market');
+ data=C.upsertRestaurant(data,{...data.restaurants[1],note:'장보기'});
+ assert.equal(data.restaurants[1].kind,'market');
+ assert.equal(data.restaurants[1].mapLocation.lat,19.7);
+ assert.equal(C.removeRestaurant(data,'market1').restaurants[0].name,item.name);
+ assert.throws(()=>C.upsertRestaurant(data,{...item,kind:'invalid'}));
+});
