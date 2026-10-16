@@ -15,12 +15,17 @@
   async function request(connection, suffix, options, fetchFn) {
     const config = validateConnection(connection);
     let result;
+    const controller=new AbortController();
+    const timer=setTimeout(()=>controller.abort(),25000);
     try {
       result = await fetchFn(`https://api.github.com/repos/${config.repo}${suffix}`, {
-        ...options, cache: 'no-store', signal: AbortSignal.timeout(25000),
+        ...options, cache: 'no-store', signal: controller.signal,
         headers: { Accept: 'application/vnd.github+json', Authorization: `Bearer ${config.token}`, 'X-GitHub-Api-Version': '2022-11-28', ...(options.body ? { 'Content-Type': 'application/json' } : {}) },
       });
-    } catch { throw error('NETWORK', '연결하지 못했습니다. 인터넷 상태를 확인한 뒤 다시 시도해 주세요. 입력한 내용은 현재 화면에 남아 있습니다.'); }
+    } catch (cause) {
+      const stage=options.method==='PUT'?'GitHub 저장 요청':'GitHub 조회 요청';
+      throw error('NETWORK', controller.signal.aborted ? `${stage}이 25초 안에 응답하지 않았습니다. 입력은 현재 화면에 남아 있습니다.` : `${stage}을 완료하지 못했습니다 (${cause?.name || '통신 오류'}). 입력은 현재 화면에 남아 있습니다.`);
+    } finally {clearTimeout(timer);} 
     if (result.status === 401) throw error('AUTH', '토큰이 만료되었거나 올바르지 않습니다. 처음 연결에서 새 토큰을 입력해 주세요.');
     if (result.status === 403 || result.status === 429) throw error('PERMISSION', '저장소 권한 또는 요청 제한을 확인해 주세요. 잠시 후 다시 시도할 수 있습니다.');
     if (result.status === 409 || result.status === 422) {
@@ -91,9 +96,10 @@
     }
   }
   async function readPublishedConnection(fetchFn = fetch) {
+    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),12000);
     let result;
-    try { result = await fetchFn(`https://raw.githubusercontent.com/namyikim/travel_plan/main/connect.json?t=${Date.now()}`, { cache: 'no-store', signal: AbortSignal.timeout(12000) }); }
-    catch { throw error('NETWORK', '연결 정보를 불러오지 못했어요. 인터넷 연결을 확인하고 다시 시도해 주세요.'); }
+    try { result = await fetchFn(`https://raw.githubusercontent.com/namyikim/travel_plan/main/connect.json?t=${Date.now()}`, { cache: 'no-store', signal: controller.signal }); }
+    catch { throw error('NETWORK', '연결 정보를 불러오지 못했어요. 인터넷 연결을 확인하고 다시 시도해 주세요.'); } finally {clearTimeout(timer);}
     if (result.status === 404) return null;
     if (!result.ok) throw error('REMOTE', '연결 정보를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.');
     const body = await result.text();

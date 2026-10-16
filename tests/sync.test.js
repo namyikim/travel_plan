@@ -83,3 +83,15 @@ test('another device loads published encryption without a token or local file', 
   assert.deepEqual(await K.decryptJSON(read, 'Trip2027'), connection);
   assert.equal(await S.readPublishedConnection(async () => response({},404)), null);
 });
+test('saving works in browsers without AbortSignal.timeout',async()=>{
+ const original=AbortSignal.timeout;AbortSignal.timeout=undefined;
+ try{
+  let put=false;
+  const result=await S.writeRemote(connection,envelope,'old',async(url,options)=>{
+   assert.ok(options.signal instanceof AbortSignal);
+   if(options.method==='PUT'){put=true;return response({content:{sha:'new'}});}
+   return response({private:true});
+  });
+  assert.equal(put,true);assert.equal(result.sha,'new');
+ }finally{AbortSignal.timeout=original;}
+});
