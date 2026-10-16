@@ -18,3 +18,12 @@ test('Korean titles remain distinct after normalization',()=>{
  assert.equal(P.selectPage([page],{title:'서울역'}),undefined);
  assert.equal(P.selectPage([page],{title:'부산역'}),page);
 });
+test('Wikimedia thumbnail domain is accepted while lookalike hosts are rejected',()=>{
+ const query={title:'Haleakalā'},page={title:'Haleakalā',pageimage:'Haleakala.jpg'};
+ for(const host of ['upload.wikimedia.org','thumb.wikimedia.org']){
+  const candidate={...page,thumbnail:{source:`https://${host}/wikipedia/commons/thumb/test.jpg?utm_source=en.wikipedia.org`}};
+  assert.equal(P.selectPage([candidate],query),candidate);
+ }
+ for(const source of ['https://thumb.wikimedia.org.evil.com/test.jpg','http://thumb.wikimedia.org/test.jpg','javascript:alert(1)'])assert.equal(P.selectPage([{...page,thumbnail:{source}}],query),undefined);
+ const fs=require('node:fs');assert.match(fs.readFileSync(require('node:path').join(__dirname,'../index.html'),'utf8'),/img-src[^;]*https:\/\/thumb.wikimedia.org/);
+});

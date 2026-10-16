@@ -14,8 +14,11 @@
     if(title.length<3||/^(아침|점심|저녁|식사|호텔|숙소|공항|렌터카|자유시간)$/.test(title))return null;
     return {title,lang:/[가-힣]/.test(title)?'ko':'en'};
   }
+  function trustedImage(source){
+    try { const url=new URL(source);return url.protocol==='https:' && ['upload.wikimedia.org','thumb.wikimedia.org'].includes(url.hostname); } catch {return false;}
+  }
   function selectPage(pages,query){
-    return (pages||[]).find(page=>normalize(page.title||'')===normalize(query.title) && !Object.hasOwn(page.pageprops||{},'disambiguation') && page.thumbnail?.source?.startsWith('https://upload.wikimedia.org/') && page.pageimage);
+    return (pages||[]).find(page=>normalize(page.title||'')===normalize(query.title) && !Object.hasOwn(page.pageprops||{},'disambiguation') && trustedImage(page.thumbnail?.source) && page.pageimage);
   }
   function create(){
     const cache=new Map();let controller=new AbortController(),queue=[],active=0,generation=0;
