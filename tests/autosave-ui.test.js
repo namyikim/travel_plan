@@ -8,7 +8,7 @@ test('autosave reaches server without depending on a successful UI render',async
 });
 test('save failure surfaces its actual cause and does not claim success',async()=>{
  let message='';const els={saveStatus:{},retrySaveBtn:{}};
- const ctx={run:async(_,op)=>op(),session:{save:async()=>{throw Error('저장소 권한 오류')}},$:id=>els[id],alert:value=>message=value,Intl,Date};vm.createContext(ctx);
+ const ctx={run:async(_,op)=>op(),session:{snapshot:()=>({localSaved:false}),save:async()=>{throw Error('저장소 권한 오류')}},$:id=>els[id],alert:value=>message=value,Intl,Date};vm.createContext(ctx);
  await assert.rejects(vm.runInContext(fn+';persistChanges()',ctx),/권한 오류/);
  assert.match(message,/저장소 권한 오류/);assert.match(els.saveStatus.textContent,/저장 실패/);
 });

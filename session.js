@@ -5,6 +5,8 @@
   'use strict';
   function createSession(deps = {}) {
     const read = deps.readRemote || S.readRemote, write = deps.writeRemote || S.writeRemote, publish = deps.publishConnection || ((config, envelope, verify) => S.publishConnection(config, envelope, fetch, verify));
+    const recovery=deps.recoveryStore;
+    let localSaved=false, recoveryWarning='';
     let baseData = null, data = null, connection = null, password = null, sha = null, dirty = false, busy = false, generation = 0, accessPending = false;
     function ready() {
       if (busy) throw new Error('처리 중입니다. 잠시 기다려 주세요.');
@@ -18,7 +20,7 @@
       try { const result = await action(check); check(); return result; } finally { busy = false; }
     }
     const loadData = async (remote, pass) => remote.envelope === null && remote.sha === null ? C.emptyData() : C.validateData(await K.decryptJSON(remote.envelope, pass));
-    function snapshot() { return { unlocked: !!connection, busy, dirty, accessPending, data: data ? C.validateData(data) : null, repo: connection?.repo || '' }; }
+    function snapshot() { return { unlocked: !!connection, localSaved, recoveryWarning, busy, dirty, accessPending, data: data ? C.validateData(data) : null, repo: connection?.repo || '' }; }
     async function open(config, pass) {
       if (connection) throw new Error('다른 저장소를 연결하려면 먼저 잠가 주세요.');
       K.checkPassword(pass);
@@ -29,12 +31,30 @@
         const loaded = await loadData(remote, pass);
         check();
         connection = valid; password = pass; data = loaded; baseData=C.validateData(loaded); sha = remote.sha; dirty = false;
+        localSaved=false;recoveryWarning='';
+        if(recovery) {
+          try {
+            const saved=await recovery.load();check();
+            if(saved?.repo===valid.repo) {
+              const draft=await K.decryptJSON(saved.envelope,pass);check();
+              const local=C.validateData(draft.data),base=C.validateData(draft.base);
+              // Keep the original base/SHA so retry uses three-way merging, not overwrite.
+              if(typeof draft.sha!=='string' && draft.sha!==null)throw new Error('잘못된 복구 정보');
+              data=local;baseData=base;sha=draft.sha;dirty=true;localSaved=true;
+              recoveryWarning='이 기기에 보관된 미전송 입력을 복구했습니다. 저장 다시 시도를 눌러 서버에 반영하세요.';
+            }
+          }catch(error){check();recoveryWarning='기기 복구본을 읽지 못했습니다. 서버 기록을 표시합니다. 복구본은 삭제하지 않았습니다.';}
+        }
       });
     }
-    function update(transform) { ready(); data = C.validateData(transform(C.validateData(data))); dirty = true; }
+    function update(transform) { ready(); data = C.validateData(transform(C.validateData(data))); dirty = true; localSaved=false; }
     async function save() {
       ready();
       return work(async check => {
+        if(recovery){
+          try{const backup=await K.encryptJSON({data,base:baseData,sha},password);check();await recovery.save({repo:connection.repo,envelope:backup});check();localSaved=true;}
+          catch(error){check();localSaved=false;recoveryWarning='기기 보관에 실패했습니다. 저장 실패 시 암호화 백업을 내려받으세요.';}
+        }
         const envelope = await K.encryptJSON(data, password);
         check();
         let result, savedData=data;
@@ -50,6 +70,8 @@
         }
         check();
         data=savedData;baseData=C.validateData(savedData);sha = result.sha; dirty = false;
+        localSaved=false;recoveryWarning='';
+        if(recovery)try{await recovery.clear();check();}catch{check();recoveryWarning='서버 저장은 완료했지만 기기 복구본 정리에 실패했습니다.';}
       });
     }
     async function reload(discard = false) {
@@ -61,6 +83,7 @@
         const loaded = await loadData(remote, password);
         check();
         data = loaded; baseData=C.validateData(loaded); sha = remote.sha; dirty = false;
+        localSaved=false;if(recovery)await recovery.clear();check();
       });
     }
     function lock(discard = false) {

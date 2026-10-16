@@ -3,10 +3,10 @@
   else root.TravelLogin = factory();
 }(globalThis, () => {
   'use strict';
-  function browserStorage() {
+  function browserStorage(database = 'travel-note-login') {
     function access(mode, operation) {
       return new Promise((resolve, reject) => {
-        const request = indexedDB.open('travel-note-login', 1);
+        const request = indexedDB.open(database, 1);
         request.onupgradeneeded = () => request.result.createObjectStore('login');
         request.onerror = () => reject(request.error);
         request.onblocked = () => reject(new Error('브라우저 로그인 저장소를 열 수 없습니다.'));
@@ -45,5 +45,5 @@
       clear: () => enqueue(() => storage.clear())
     };
   }
-  return { createLoginStore };
+  return { createLoginStore, createRecoveryStore:()=>createLoginStore(browserStorage('travel-note-recovery')) };
 }));

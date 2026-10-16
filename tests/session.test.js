@@ -205,3 +205,15 @@ test('same-field conflicts keep local changes and never overwrite remote',()=>{
  assert.throws(()=>C.mergeData(base,local,remote),e=>e.code==='MERGE_CONFLICT');
  assert.equal(local.trips[0].title,'내 수정');assert.equal(remote.trips[0].title,'다른 수정');
 });
+test('failed network saves persist encrypted recovery and reopen without data loss',async()=>{
+ let row=null;const recoveryStore={save:async value=>{row=value;},load:async()=>row,clear:async()=>{row=null;}};
+ const original=C.upsertTrip(C.emptyData(),trip),remote={envelope:await K.encryptJSON(original,password),sha:'original'};
+ const deps={recoveryStore,readRemote:async()=>remote,writeRemote:async()=>{throw Object.assign(Error('Failed to fetch'),{code:'NETWORK'});}};
+ const a=createSession(deps);await a.open(connection,password);
+ a.update(data=>C.upsertTrip(data,{...trip,title:'사라지면 안 되는 일정'}));await assert.rejects(a.save(),/fetch/);
+ assert.equal(a.snapshot().localSaved,true);assert.ok(row.envelope);assert.equal(JSON.stringify(row).includes('사라지면'),false);
+ a.invalidate();const b=createSession(deps);await b.open(connection,password);
+ assert.equal(b.snapshot().data.trips[0].title,'사라지면 안 되는 일정');assert.equal(b.snapshot().dirty,true);
+ const c=createSession({...deps,writeRemote:async()=>({sha:'saved'})});await c.open(connection,password);await c.save();
+ assert.equal(row,null);assert.equal(c.snapshot().dirty,false);
+});

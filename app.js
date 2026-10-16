@@ -1,7 +1,7 @@
 (() => {
   'use strict';
   const C = TravelCore, K = TravelCrypto, S = TravelSync;
-  const session = TravelSession.createSession();
+  const session = TravelSession.createSession({recoveryStore:TravelLogin.createRecoveryStore()});
   const placeImages = TravelPlaceImages.create();
   const loginStore = TravelLogin.createLoginStore();
   const $ = id => document.getElementById(id);
@@ -85,8 +85,8 @@
         await session.save();
         saveMessage = `자동 저장 완료 · ${new Intl.DateTimeFormat('ko-KR', { hour:'2-digit', minute:'2-digit' }).format(new Date())}`;
       } catch(error) {
-        $('saveStatus').textContent='저장 실패 — 현재 입력은 아직 서버에 저장되지 않았습니다.';
-        alert(`저장하지 못했습니다.\n${error.message}\n\n새로고침하지 말고 이 메시지를 알려주세요. 현재 입력은 화면에 남아 있습니다.`);
+        $('saveStatus').textContent=session.snapshot().localSaved?'이 기기에 암호화 저장됨 · 서버 전송 실패':'저장 실패 — 기기와 서버에 저장되지 않았습니다.';
+        alert(`저장하지 못했습니다.\n${error.message}\n\n${session.snapshot().localSaved?'현재 입력은 이 기기에 암호화 보관했습니다. 다른 PC에는 아직 반영되지 않았습니다.':'새로고침하지 말고 암호화 백업을 내려받아 주세요.'}`);
         throw error;
       } finally { savingChanges = false; }
     });
@@ -99,7 +99,8 @@
     $('workspace').hidden = !state.unlocked;
     if (!state.unlocked) { document.body.classList.remove('hawaii-theme'); return; }
     $('connectedRepo').textContent = state.repo;
-    $('saveStatus').textContent = savingChanges ? '변경 내용을 자동 저장하고 있어요…' : state.accessPending ? '다른 기기 접속 등록이 아직 완료되지 않았어요. 연결 설정에서 다시 등록해 주세요.' : state.dirty ? '자동 저장이 완료되지 않았어요. 입력 내용은 유지됩니다. 다시 시도해 주세요.' : saveMessage;
+    $('saveStatus').textContent = savingChanges ? '변경 내용을 자동 저장하고 있어요…' : state.accessPending ? '다른 기기 접속 등록이 아직 완료되지 않았어요. 연결 설정에서 다시 등록해 주세요.' : state.dirty ? (state.localSaved?'이 기기에 암호화 저장됨 · 서버 전송 대기. 저장 다시 시도를 눌러주세요.':'자동 저장이 완료되지 않았어요. 입력 내용은 유지됩니다. 다시 시도해 주세요.') : saveMessage;
+    if(state.recoveryWarning)$('saveStatus').textContent+=' '+state.recoveryWarning;
     $('retrySaveBtn').hidden = !state.dirty || savingChanges;
     $('retrySaveBtn').disabled = pending;
     const trips = [...state.data.trips].sort((a, b) => a.start.localeCompare(b.start));
