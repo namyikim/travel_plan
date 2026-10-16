@@ -109,3 +109,13 @@ test('point-to-point durations survive event edits and version-1 JSON round trip
  assert.throws(()=>C.validateEvent({...second,travelFromId:null},trip));
  assert.throws(()=>C.validateEvent({...second,travelMinutes:null},trip));
 });
+test('manual event image URLs persist and unsafe schemes are rejected',()=>{
+ let data=C.upsertTrip(C.emptyData(),trip);
+ const input={...event,imageUrl:'https://images.example.com/photo.jpg',imageLink:'https://example.com/place'};
+ data=C.upsertEvent(data,trip.id,input);
+ const saved=C.validateData(JSON.parse(JSON.stringify(data))).trips[0].events[0];
+ assert.equal(saved.imageUrl,input.imageUrl);assert.equal(saved.imageLink,input.imageLink);
+ assert.equal(C.validateEvent(event,trip).imageUrl,'');
+ for(const url of ['javascript:alert(1)','data:image/png;base64,abc','http://example.com/a.jpg','https://user:pass@example.com/a.jpg'])assert.throws(()=>C.validateEvent({...event,imageUrl:url},trip));
+ assert.throws(()=>C.validateEvent({...event,imageLink:'javascript:alert(1)'},trip));
+});

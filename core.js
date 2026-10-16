@@ -174,7 +174,7 @@
     if (!raw || typeof raw !== 'object') fail('일정 정보를 확인해 주세요.');
     if (!validDate(raw.date) || raw.date < trip.start || raw.date > trip.end) fail('모든 일정 날짜는 여행 기간 안에 있어야 합니다.');
     if (typeof raw.time !== 'string' || (raw.time !== '' && !/^([01]\d|2[0-3]):[0-5]\d$/.test(raw.time))) fail('시간을 확인해 주세요.');
-    const event = { id: id(raw.id), date: raw.date, time: raw.time, place: text(raw.place, '일정·장소', 200, true), transport: text(raw.transport, '이동 정보', 500), lodging: text(raw.lodging, '숙소', 500), note: text(raw.note, '메모', 5000), url: text(raw.url, '참고 링크', 2000), mapLocation: validateMapLocation(raw.mapLocation), category: raw.category ?? 'auto', timeZone: raw.timeZone ?? 'Asia/Seoul', timeOccurrence: raw.timeOccurrence ?? 'earlier', usdCents: moneyUnits(raw.usdCents), krw: moneyUnits(raw.krw), travelFromId: raw.travelFromId == null ? null : id(raw.travelFromId), travelMinutes: validateTravelMinutes(raw.travelMinutes) };
+    const event = { id: id(raw.id), date: raw.date, time: raw.time, place: text(raw.place, '일정·장소', 200, true), transport: text(raw.transport, '이동 정보', 500), lodging: text(raw.lodging, '숙소', 500), note: text(raw.note, '메모', 5000), url: text(raw.url, '참고 링크', 2000), imageUrl:text(raw.imageUrl ?? '', '이미지 URL', 2000), imageLink:text(raw.imageLink ?? '', '이미지 소개 링크', 2000), mapLocation: validateMapLocation(raw.mapLocation), category: raw.category ?? 'auto', timeZone: raw.timeZone ?? 'Asia/Seoul', timeOccurrence: raw.timeOccurrence ?? 'earlier', usdCents: moneyUnits(raw.usdCents), krw: moneyUnits(raw.krw), travelFromId: raw.travelFromId == null ? null : id(raw.travelFromId), travelMinutes: validateTravelMinutes(raw.travelMinutes) };
     if ((event.travelFromId === null) !== (event.travelMinutes === null) || event.travelFromId === event.id) fail('이동시간의 출발 지점 정보를 확인해 주세요.');
     if (!['earlier','later'].includes(event.timeOccurrence)) fail('중복 시간 기준을 확인해 주세요.');
     if (event.category !== 'auto' && !Object.hasOwn(categories, event.category)) fail('일정 아이콘을 선택해 주세요.');
@@ -184,6 +184,12 @@
       try { url = new URL(event.url); } catch { fail('참고 링크는 https:// 또는 http://로 시작하는 주소를 입력해 주세요.'); }
       if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) fail('참고 링크는 인증 정보 없는 웹 주소를 입력해 주세요.');
       event.url = url.href;
+    }
+    for(const field of ['imageUrl','imageLink']) {
+      if(!event[field])continue;
+      let parsed;try{parsed=new URL(event[field]);}catch{fail('이미지 주소와 소개 링크는 올바른 https:// 주소를 입력해 주세요.');}
+      if(parsed.protocol!=='https:' || parsed.username || parsed.password)fail('이미지 주소와 소개 링크는 인증 정보 없는 https:// 주소를 입력해 주세요.');
+      event[field]=parsed.href;
     }
     return event;
   }

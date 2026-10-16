@@ -140,7 +140,12 @@
       const links = node('div', 'event-links');
       links.append(link('지도에서 찾기 ↗', `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${trip.destination} ${event.place}`)}`));
       if (event.url) links.append(link('예약·참고 링크 ↗', event.url));
-      content.append(links); card.append(node('div', 'event-time', event.time || '자유'), content); $('timeline').append(card); placeImages.attach(content,event.place);
+      content.append(links); card.append(node('div', 'event-time', event.time || '자유'), content); $('timeline').append(card); if(event.imageUrl) {
+        const figure=node('figure','place-thumbnail'),img=node('img');img.src=event.imageUrl;img.alt=`${event.place} 대표 이미지`;img.width=112;img.height=80;img.loading='lazy';img.referrerPolicy='no-referrer';
+        const target=event.imageLink || event.url;
+        if(target){const a=link('',target);a.title=`${event.place} 소개 보기`;a.append(img);figure.append(a);}else figure.append(img);
+        img.addEventListener('error',()=>{figure.replaceChildren(node('span','hint','사진을 불러오지 못했어요. 수정에서 이미지 URL을 확인해 주세요.'));});content.prepend(figure);
+      }else placeImages.attach(content,event.place);
     }
   }
   const placeLabel=()=>mainView==='markets'?'마트':'맛집';
@@ -277,7 +282,7 @@
     if (pending) return;
     const trip = tripNow(); if (!trip) return;
     $('eventForm').reset(); $('eventFormError').textContent = ''; $('eventDialogTitle').textContent = event ? '일정 수정' : '일정 추가';
-    for (const [field, key] of [['eventId','id'],['eventTime','time'],['eventPlace','place'],['eventTransport','transport'],['eventLodging','lodging'],['eventNote','note'],['eventUrl','url']]) $(field).value = event?.[key] || '';
+    for (const [field, key] of [['eventId','id'],['eventTime','time'],['eventPlace','place'],['eventTransport','transport'],['eventLodging','lodging'],['eventNote','note'],['eventUrl','url'],['eventImageUrl','imageUrl'],['eventImageLink','imageLink']]) $(field).value = event?.[key] || '';
     $('eventCategory').value = event?.category || 'auto';
     $('eventTimeZone').value = event?.timeZone || 'Asia/Seoul';
     $('eventTimeOccurrence').value = event?.timeOccurrence || 'earlier';
@@ -357,7 +362,7 @@
     event.preventDefault(); if (pending) return;
     try {
       const previousEvent = tripNow()?.events.find(item => item.id === $('eventId').value);
-      const input = { mapLocation: previousEvent?.place === $('eventPlace').value.trim() ? previousEvent.mapLocation : null, travelFromId: previousEvent?.travelFromId ?? null, travelMinutes: previousEvent?.travelMinutes ?? null, id: $('eventId').value || crypto.randomUUID(), date: $('eventDate').value, time: $('eventTime').value, category: $('eventCategory').value, timeZone: $('eventTimeZone').value, timeOccurrence: $('eventTimeOccurrence').value, place: $('eventPlace').value, transport: $('eventTransport').value, lodging: $('eventLodging').value, note: $('eventNote').value, url: $('eventUrl').value, usdCents: C.parseMoney($('eventUSD').value, 'USD'), krw: C.parseMoney($('eventKRW').value, 'KRW') };
+      const input = { mapLocation: previousEvent?.place === $('eventPlace').value.trim() ? previousEvent.mapLocation : null, travelFromId: previousEvent?.travelFromId ?? null, travelMinutes: previousEvent?.travelMinutes ?? null, id: $('eventId').value || crypto.randomUUID(), date: $('eventDate').value, time: $('eventTime').value, category: $('eventCategory').value, timeZone: $('eventTimeZone').value, timeOccurrence: $('eventTimeOccurrence').value, place: $('eventPlace').value, transport: $('eventTransport').value, lodging: $('eventLodging').value, note: $('eventNote').value, url: $('eventUrl').value, imageUrl:$('eventImageUrl').value, imageLink:$('eventImageLink').value, usdCents: C.parseMoney($('eventUSD').value, 'USD'), krw: C.parseMoney($('eventKRW').value, 'KRW') };
       session.update(data => C.upsertEvent(data, selectedTrip, input));
       selectedDate = input.date; calendarMonth = input.date.slice(0,7); draft = false; $('eventDialog').close(); markChanged();
     } catch (error) { $('eventFormError').textContent = error.message; }
