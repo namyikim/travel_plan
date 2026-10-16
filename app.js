@@ -2,6 +2,7 @@
   'use strict';
   const C = TravelCore, K = TravelCrypto, S = TravelSync;
   const session = TravelSession.createSession();
+  const placeImages = TravelPlaceImages.create();
   const loginStore = TravelLogin.createLoginStore();
   const $ = id => document.getElementById(id);
   let encryptedConnection = null, selectedTrip = null, selectedDate = '', pending = false, draft = false, viewGeneration = 0;
@@ -122,6 +123,7 @@
     const events = trip.events.filter(event => $('allEvents').checked || event.date === selectedDate).sort(C.compareEvents);
     $('eventCount').textContent = `${events.length}개의 일정 · 실제 시간순`;
     renderDetailView(trip);
+    placeImages.resetView();
     $('timeline').replaceChildren();
     if (!events.length) { const empty = node('div', 'day-empty'); empty.append(node('p', '', '아직 비어 있는 하루예요.'), action('＋ 첫 일정 적기', 'small-btn', () => openEvent())); $('timeline').append(empty); }
     for (const event of events) {
@@ -138,7 +140,7 @@
       const links = node('div', 'event-links');
       links.append(link('지도에서 찾기 ↗', `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${trip.destination} ${event.place}`)}`));
       if (event.url) links.append(link('예약·참고 링크 ↗', event.url));
-      content.append(links); card.append(node('div', 'event-time', event.time || '자유'), content); $('timeline').append(card);
+      content.append(links); card.append(node('div', 'event-time', event.time || '자유'), content); $('timeline').append(card); placeImages.attach(content,event.place);
     }
   }
   const placeLabel=()=>mainView==='markets'?'마트':'맛집';
@@ -291,6 +293,7 @@
     if (id === 'settingsDialog') $('passwordForm').reset();
   }
   function clearSensitiveDOM() {
+    placeImages.clear();
     restaurantMap.clear(); mapView.clear(); detailView='list'; $('mapDateLabel').textContent='';
     for (const id of ['restaurantList','restaurantFormError','calendarGrid','stayList','calendarMonth','stayFormError','tripList','timeline','tripDestination','tripTitle','tripMeta','tripCosts','dayNumber','dayHeading','eventCount','connectedRepo','saveStatus','appError','settingsStatus','settingsError','tripFormError','eventFormError']) $(id).replaceChildren();
     for (const id of ['restaurantForm','tripForm','eventForm','stayForm','setupForm','unlockForm','passwordForm']) $(id).reset();

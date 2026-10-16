@@ -39,3 +39,5 @@ select{font:inherit;width:100%;padding:12px 14px;border:1px solid var(--line);bo
 #restaurantMap{height:420px;border:1px solid #dce5f2;border-radius:16px;z-index:0}@media(max-width:600px){#restaurantMap{height:320px}}
 
 #marketsBtn{margin-bottom:24px;text-align:left}#marketsBtn[aria-pressed="true"]{background:#2463d4;color:white}
+
+.place-thumbnail{float:left;width:112px;margin:0 16px 12px 0}.place-thumbnail img{display:block;width:112px;height:80px;object-fit:cover;border-radius:10px}.place-thumbnail figcaption{font-size:10px;line-height:1.4;margin-top:4px;color:#64748b}.event-content{display:flow-root}@media(max-width:600px){.place-thumbnail{width:80px;margin-right:10px}.place-thumbnail img{width:80px;height:64px}}
