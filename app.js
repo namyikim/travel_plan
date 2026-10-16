@@ -61,7 +61,14 @@
     $(errorId).textContent = ''; setBusy(true);
     try { await operation(check); }
     catch (error) { if (generation === viewGeneration) $(errorId === 'gateError' && session.snapshot().unlocked ? 'appError' : errorId).textContent = error.message || '처리하지 못했습니다. 다시 시도해 주세요.'; }
-    finally { setBusy(false); render(); }
+    finally {
+      setBusy(false);
+      try { render(); } catch(error) {
+        $('appError').textContent=`화면 표시 오류: ${error.message}. 저장 상태: ${session.snapshot().dirty?'미저장 — 저장 다시 시도를 눌러주세요.':'서버 저장본 유지'}`;
+        $('retrySaveBtn').hidden=!session.snapshot().dirty;
+        $('retrySaveBtn').disabled=false;
+      }
+    }
   }
   function download(filename, value) {
     const blob = new Blob([JSON.stringify(value, null, 2)], { type: 'application/json' });
@@ -71,10 +78,16 @@
   const money = (value, currency) => new Intl.NumberFormat('ko-KR', { style: 'currency', currency, currencyDisplay: 'code' }).format(value);
   function persistChanges() {
     return run('appError', async () => {
-      savingChanges = true; render();
+      savingChanges = true;
+      $('saveStatus').textContent='변경 내용을 서버에 저장하고 있어요…';
+      $('retrySaveBtn').hidden=true;
       try {
         await session.save();
         saveMessage = `자동 저장 완료 · ${new Intl.DateTimeFormat('ko-KR', { hour:'2-digit', minute:'2-digit' }).format(new Date())}`;
+      } catch(error) {
+        $('saveStatus').textContent='저장 실패 — 현재 입력은 아직 서버에 저장되지 않았습니다.';
+        alert(`저장하지 못했습니다.\n${error.message}\n\n새로고침하지 말고 이 메시지를 알려주세요. 현재 입력은 화면에 남아 있습니다.`);
+        throw error;
       } finally { savingChanges = false; }
     });
   }
