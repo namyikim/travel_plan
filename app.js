@@ -298,7 +298,7 @@
     if (id === 'settingsDialog') $('passwordForm').reset();
   }
   function clearSensitiveDOM() {
-    placeImages.clear();
+    placeImages.clear();$('historyResult').replaceChildren();$('historySelect').replaceChildren();$('historySearch').value='트로피컬';
     restaurantMap.clear(); mapView.clear(); detailView='list'; $('mapDateLabel').textContent='';
     for (const id of ['restaurantList','restaurantFormError','calendarGrid','stayList','calendarMonth','stayFormError','tripList','timeline','tripDestination','tripTitle','tripMeta','tripCosts','dayNumber','dayHeading','eventCount','connectedRepo','saveStatus','appError','settingsStatus','settingsError','tripFormError','eventFormError']) $(id).replaceChildren();
     for (const id of ['restaurantForm','tripForm','eventForm','stayForm','setupForm','unlockForm','passwordForm']) $(id).reset();
@@ -396,6 +396,26 @@
   $('settingsBtn').addEventListener('click', () => { if (!pending) { $('settingsError').textContent = ''; $('settingsStatus').textContent = ''; $('settingsDialog').showModal(); } });
   $('lockBtn').addEventListener('click', () => lock()); $('disconnectBtn').addEventListener('click', () => lock(true));
   $('enableAccessBtn').addEventListener('click', () => run('settingsError', async () => { encryptedConnection = await session.enablePasswordAccess(); $('settingsStatus').textContent = '등록 완료! 다른 기기에서도 같은 비밀번호로 열 수 있어요.'; saveMessage = '비밀번호 접속 등록을 완료했어요.'; }));
+  $('historyBtn').addEventListener('click',()=>run('settingsError',async()=>{
+    const rows=await session.history();$('historySelect').replaceChildren();$('historyResult').replaceChildren();
+    for(const row of rows){const option=node('option','',new Intl.DateTimeFormat('ko-KR',{dateStyle:'medium',timeStyle:'medium',timeZone:'Asia/Seoul'}).format(new Date(row.date))+' (한국시간)');option.value=row.sha;$('historySelect').append(option);}
+    $('settingsStatus').textContent=`최근 저장 이력 ${rows.length}개를 불러왔습니다.`;
+  }));
+  $('inspectHistoryBtn').addEventListener('click',()=>run('settingsError',async()=>{
+    const revision=$('historySelect').value;if(!revision)throw new Error('저장 이력을 먼저 불러와 선택해 주세요.');
+    const historical=await session.inspectHistory(revision),current=session.snapshot().data;
+    const term=$('historySearch').value.trim().toLowerCase();
+    const result=$('historyResult');result.replaceChildren();
+    for(const [label,data] of [['현재 화면',current],['선택한 저장본',historical]]){
+      result.append(node('h4','',label));let count=0;
+      for(const trip of data.trips)for(const event of trip.events){
+        if(term&&!event.place.toLowerCase().includes(term)&&!(term==='트로피컬'&&/tropical/i.test(event.place)))continue;
+        result.append(node('p','hint',`${trip.title} · ${event.date} ${event.time} · ${event.place}`));count++;
+      }
+      if(!count)result.append(node('p','hint','일치하는 일정이 없습니다. 검색어를 바꾸거나 비워 주세요.'));
+    }
+    $('settingsStatus').textContent='비교만 완료했습니다. 현재 일정은 변경하지 않았습니다.';
+  }));
   $('downloadBackupBtn').addEventListener('click', () => run('settingsError', async () => { download(`travel-backup-${today()}.json`, await session.backup()); $('settingsStatus').textContent = '암호화 백업을 내려받았어요. 복구에는 현재 비밀번호가 필요합니다.'; }));
   $('passwordForm').addEventListener('submit', event => {
     event.preventDefault();

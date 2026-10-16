@@ -97,7 +97,14 @@
         return config;
       });
     }
-    return { snapshot, open, update, save, reload, lock, invalidate, connectionFile, backup, changePassword, enablePasswordAccess, rememberLogin };
+    async function history() { ready(); return work(async check=>{const rows=await (deps.listHistory || S.listHistory)(connection);check();return rows;}); }
+    async function inspectHistory(revision) {
+      ready();return work(async check=>{
+        const remote=await (deps.readRevision || ((config,ref)=>S.readRemote(config,fetch,ref)))(connection,revision);check();
+        const loaded=await loadData(remote,password);check();return loaded;
+      });
+    }
+    return { history, inspectHistory, snapshot, open, update, save, reload, lock, invalidate, connectionFile, backup, changePassword, enablePasswordAccess, rememberLogin };
   }
   return { createSession };
 }));

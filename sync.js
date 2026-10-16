@@ -33,9 +33,10 @@
     const repo = await result.json();
     if (repo.private !== true) throw error('PUBLIC', '여행 기록은 비공개(Private) 저장소에만 저장할 수 있습니다.');
   }
-  async function readRemote(connection, fetchFn = fetch) {
+  async function readRemote(connection, fetchFn = fetch, revision = null) {
     await verifyPrivate(connection, fetchFn);
-    const result = await request(connection, '/contents/travel-data.json', { method: 'GET' }, fetchFn);
+    if(revision !== null && !/^[a-f0-9]{40}$/.test(revision)) throw error('FORMAT','저장 이력 식별자가 올바르지 않습니다.');
+    const result = await request(connection, '/contents/travel-data.json'+(revision ? `?ref=${revision}` : ''), { method: 'GET' }, fetchFn);
     if (result.status === 404) return { envelope: null, sha: null };
     const file = await result.json();
     if (file.encoding !== 'base64' || typeof file.content !== 'string' || file.content.length > 1300000 || typeof file.sha !== 'string' || !file.sha) throw error('FORMAT', '여행 파일 형식이나 크기를 확인해 주세요.');
@@ -96,5 +97,11 @@
     if (body.length > 16000) throw error('FORMAT', '연결 정보 크기가 올바르지 않습니다.');
     return encryptedFields(JSON.parse(body));
   }
-  return { personalConnection, validateConnection, readRemote, writeRemote, publishConnection, readPublishedConnection };
+  async function listHistory(connection, fetchFn=fetch) {
+    const response=await request(connection,'/commits?path=travel-data.json&per_page=30',{method:'GET'},fetchFn);
+    if(!response.ok)throw error('REMOTE','저장 이력을 불러오지 못했습니다.');
+    const rows=await response.json();if(!Array.isArray(rows))throw error('FORMAT','저장 이력 형식이 올바르지 않습니다.');
+    return rows.map(row=>({sha:row.sha,date:row.commit?.committer?.date || row.commit?.author?.date})).filter(row=>/^[a-f0-9]{40}$/.test(row.sha) && !Number.isNaN(Date.parse(row.date)));
+  }
+  return { listHistory, personalConnection, validateConnection, readRemote, writeRemote, publishConnection, readPublishedConnection };
 }));

@@ -178,3 +178,12 @@ test('remembered login follows password changes and cannot be saved after logout
  await assert.rejects(session.rememberLogin(store), /먼저/);
  assert.equal(saved.length, 2);
 });
+test('history inspection decrypts an old snapshot without modifying current unsaved data',async()=>{
+ const past=C.upsertTrip(C.emptyData(),{...trip,title:'이전 저장본'});
+ const envelope=await K.encryptJSON(past,password);let writes=0;
+ const session=createSession({readRemote:async()=>({envelope:null,sha:null}),readRevision:async()=>({envelope,sha:'old'}),listHistory:async()=>[{sha:'a'.repeat(40),date:'2026-10-15T13:03:59Z'}],writeRemote:async()=>{writes++;return{sha:'new'};}});
+ await session.open(connection,password);session.update(data=>C.upsertTrip(data,{...trip,title:'현재 미저장'}));
+ const before=session.snapshot();assert.equal((await session.history()).length,1);
+ assert.equal((await session.inspectHistory('a'.repeat(40))).trips[0].title,'이전 저장본');
+ assert.deepEqual(session.snapshot(),before);assert.equal(writes,0);
+});
