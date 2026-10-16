@@ -23,7 +23,10 @@
     } catch { throw error('NETWORK', '연결하지 못했습니다. 인터넷 상태를 확인한 뒤 다시 시도해 주세요. 입력한 내용은 현재 화면에 남아 있습니다.'); }
     if (result.status === 401) throw error('AUTH', '토큰이 만료되었거나 올바르지 않습니다. 처음 연결에서 새 토큰을 입력해 주세요.');
     if (result.status === 403 || result.status === 429) throw error('PERMISSION', '저장소 권한 또는 요청 제한을 확인해 주세요. 잠시 후 다시 시도할 수 있습니다.');
-    if (result.status === 409 || result.status === 422) throw error('CONFLICT', '다른 기기에서 기록이 바뀌었거나 저장 조건이 맞지 않습니다. 입력은 유지했습니다. 최신 기록을 불러와 확인해 주세요.');
+    if (result.status === 409 || result.status === 422) {
+      let detail='';try{const body=await result.json();detail=typeof body.message==='string'?body.message.slice(0,300):'';}catch{}
+      throw error('CONFLICT', `저장 충돌 (HTTP ${result.status})${detail ? ': '+detail : ''}. 입력은 유지됩니다.`);
+    }
     if (result.status !== 404 && !result.ok) throw error('REMOTE', `저장소 응답에 문제가 있습니다 (${result.status}). 잠시 후 다시 시도해 주세요.`);
     return result;
   }

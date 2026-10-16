@@ -262,5 +262,24 @@
     return new Date(Date.parse(`${date}T00:00:00Z`) + offset * 86400000).toISOString().slice(0, 10);
   }
   const dayCount = (start, end) => Math.round((Date.parse(`${end}T00:00:00Z`) - Date.parse(`${start}T00:00:00Z`)) / 86400000) + 1;
-  return { islands, upsertRestaurant, removeRestaurant, categories, eventCategory, upsertStay, removeStay, calendarDays, calendarWeeks, timeZones, eventInstant, compareEvents, parseMoney, tripCosts, emptyData, validDate, validateTrip, validateEvent, validateData, upsertTrip, upsertEvent, removeTrip, removeEvent, shiftDate, dayCount };
+  function mergeData(base,local,remote) {
+    const equal=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+    function merge(b,l,r,path) {
+      if(equal(l,b))return r;
+      if(equal(r,b)||equal(l,r))return l;
+      if([b,l,r].every(Array.isArray)) {
+        const ids=[...new Set([...r,...l].map(x=>x.id))];
+        return ids.map(key=>merge(b.find(x=>x.id===key),l.find(x=>x.id===key),r.find(x=>x.id===key),path+' / '+key)).filter(x=>x!==undefined);
+      }
+      if([b,l,r].every(x=>x && typeof x==='object' && !Array.isArray(x))) {
+        const out={};for(const key of new Set([...Object.keys(b),...Object.keys(l),...Object.keys(r)])) {
+          const value=merge(b[key],l[key],r[key],path+' / '+key);if(value!==undefined)out[key]=value;
+        }return out;
+      }
+      throw Object.assign(new Error(`두 기기에서 같은 항목을 다르게 수정했습니다 (${path}). 현재 입력은 유지됩니다. 암호화 백업을 받은 후 저장 이력을 확인해 주세요.`),{code:'MERGE_CONFLICT'});
+    }
+    const normalize=value=>({...validateData(value),restaurants:validateData(value).restaurants || []});
+    return validateData(merge(normalize(base),normalize(local),normalize(remote),'여행 기록'));
+  }
+  return { mergeData, islands, upsertRestaurant, removeRestaurant, categories, eventCategory, upsertStay, removeStay, calendarDays, calendarWeeks, timeZones, eventInstant, compareEvents, parseMoney, tripCosts, emptyData, validDate, validateTrip, validateEvent, validateData, upsertTrip, upsertEvent, removeTrip, removeEvent, shiftDate, dayCount };
 }));

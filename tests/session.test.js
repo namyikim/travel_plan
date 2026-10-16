@@ -187,3 +187,21 @@ test('history inspection decrypts an old snapshot without modifying current unsa
  assert.equal((await session.inspectHistory('a'.repeat(40))).trips[0].title,'이전 저장본');
  assert.deepEqual(session.snapshot(),before);assert.equal(writes,0);
 });
+test('stale PC saves merge independent edits using latest server SHA',async()=>{
+ let remote={envelope:await K.encryptJSON(C.upsertTrip(C.emptyData(),trip),password),sha:'v1'},version=1;
+ const deps={readRemote:async()=>remote,writeRemote:async(_,envelope,sha)=>{
+  if(sha!==remote.sha)throw Object.assign(Error('stale SHA'),{code:'CONFLICT'});
+  remote={envelope,sha:'v'+(++version)};return{sha:remote.sha};
+ }};
+ const a=createSession(deps),b=createSession(deps);await a.open(connection,password);await b.open(connection,password);
+ a.update(data=>C.upsertTrip(data,{...trip,title:'다른 PC 수정'}));await a.save();
+ b.update(data=>C.upsertTrip(data,{...trip,people:3}));await b.save();
+ const result=await K.decryptJSON(remote.envelope,password);
+ assert.equal(result.trips[0].title,'다른 PC 수정');assert.equal(result.trips[0].people,3);assert.equal(b.snapshot().dirty,false);
+});
+test('same-field conflicts keep local changes and never overwrite remote',()=>{
+ const base=C.upsertTrip(C.emptyData(),trip);
+ const local=C.upsertTrip(base,{...trip,title:'내 수정'}),remote=C.upsertTrip(base,{...trip,title:'다른 수정'});
+ assert.throws(()=>C.mergeData(base,local,remote),e=>e.code==='MERGE_CONFLICT');
+ assert.equal(local.trips[0].title,'내 수정');assert.equal(remote.trips[0].title,'다른 수정');
+});
