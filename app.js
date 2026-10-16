@@ -2,6 +2,7 @@
   'use strict';
   const C = TravelCore, K = TravelCrypto, S = TravelSync;
   const session = TravelSession.createSession({recoveryStore:TravelLogin.createRecoveryStore()});
+  const weatherView = TravelWeather.create();
   const placeImages = TravelPlaceImages.create();
   const loginStore = TravelLogin.createLoginStore();
   const $ = id => document.getElementById(id);
@@ -132,6 +133,7 @@
     $('tripCosts').textContent = `여행 전체 금액  ·  ${money(costs.usdCents / 100, 'USD')}  +  ${money(costs.krw, 'KRW')}  ·  환율 미적용`;
     $('dayNumber').textContent = `DAY ${String(C.dayCount(trip.start, selectedDate)).padStart(2, '0')} / ${C.dayCount(trip.start, trip.end)}`;
     $('dayHeading').textContent = new Intl.DateTimeFormat('ko-KR', { month: 'long', day: 'numeric', weekday: 'short', timeZone: 'UTC' }).format(new Date(`${selectedDate}T00:00:00Z`));
+    weatherView.update(trip,selectedDate);
     $('dayPicker').value = selectedDate; $('dayPicker').min = trip.start; $('dayPicker').max = trip.end;
     $('prevDayBtn').disabled = pending || selectedDate === trip.start; $('nextDayBtn').disabled = pending || selectedDate === trip.end;
     const events = trip.events.filter(event => $('allEvents').checked || event.date === selectedDate).sort(C.compareEvents);
@@ -312,6 +314,7 @@
     if (id === 'settingsDialog') $('passwordForm').reset();
   }
   function clearSensitiveDOM() {
+    weatherView.clear();
     placeImages.clear();$('historyResult').replaceChildren();$('historySelect').replaceChildren();$('historySearch').value='트로피컬';
     restaurantMap.clear(); mapView.clear(); detailView='list'; $('mapDateLabel').textContent='';
     for (const id of ['restaurantList','restaurantFormError','calendarGrid','stayList','calendarMonth','stayFormError','tripList','timeline','tripDestination','tripTitle','tripMeta','tripCosts','dayNumber','dayHeading','eventCount','connectedRepo','saveStatus','appError','settingsStatus','settingsError','tripFormError','eventFormError']) $(id).replaceChildren();
