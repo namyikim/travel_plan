@@ -158,6 +158,13 @@
       return total;
     }, { usdCents: 0, krw: 0 });
   }
+  function expenseSummary(data) {
+    const items = data.trips.flatMap(trip => trip.events
+      .filter(event => event.usdCents != null || event.krw != null)
+      .map(event => ({ trip, event })))
+      .sort((a, b) => compareEvents(a.event, b.event) || a.trip.id.localeCompare(b.trip.id));
+    return { items, totals: tripCosts({ events: items.map(item => item.event) }) };
+  }
   function validateMapLocation(value) {
     if (value === undefined || value === null) return null;
     if (typeof value !== 'object' || !Number.isFinite(value.lat) || !Number.isFinite(value.lon) || Math.abs(value.lat)>90 || Math.abs(value.lon)>180) fail('지도 위치가 올바르지 않습니다. 장소를 다시 선택해 주세요.');
@@ -281,5 +288,5 @@
     const normalize=value=>({...validateData(value),restaurants:validateData(value).restaurants || []});
     return validateData(merge(normalize(base),normalize(local),normalize(remote),'여행 기록'));
   }
-  return { mergeData, islands, upsertRestaurant, removeRestaurant, categories, eventCategory, upsertStay, removeStay, calendarDays, calendarWeeks, timeZones, eventInstant, compareEvents, parseMoney, tripCosts, emptyData, validDate, validateTrip, validateEvent, validateData, upsertTrip, upsertEvent, removeTrip, removeEvent, shiftDate, dayCount };
+  return { expenseSummary, mergeData, islands, upsertRestaurant, removeRestaurant, categories, eventCategory, upsertStay, removeStay, calendarDays, calendarWeeks, timeZones, eventInstant, compareEvents, parseMoney, tripCosts, emptyData, validDate, validateTrip, validateEvent, validateData, upsertTrip, upsertEvent, removeTrip, removeEvent, shiftDate, dayCount };
 }));

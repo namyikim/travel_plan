@@ -43,3 +43,15 @@ select{font:inherit;width:100%;padding:12px 14px;border:1px solid var(--line);bo
 .place-thumbnail{float:left;width:112px;margin:0 16px 12px 0}.place-thumbnail img{display:block;width:112px;height:80px;object-fit:cover;border-radius:10px}.place-thumbnail figcaption{font-size:10px;line-height:1.4;margin-top:4px;color:#64748b}.event-content{display:flow-root}@media(max-width:600px){.place-thumbnail{width:80px;margin-right:10px}.place-thumbnail img{width:80px;height:64px}}
 
 .weather-card{padding:20px;margin:0 0 22px;border:1px solid #cee0f8;border-radius:14px;background:#f0f6ff}.weather-card label{margin-top:0}.weather-card select{max-width:340px;margin-bottom:14px}.weather-card strong{color:#215caf}.weather-card p{margin:8px 0;font-size:13px}.weather-card a{font-size:12px}
+
+#expensesBtn{text-align:left;margin-top:0;margin-bottom:24px}#expensesBtn[aria-pressed="true"]{background:#2463d4;color:white}
+.expense-scroll{overflow-x:auto;border:1px solid var(--line);border-radius:14px;background:#fff}
+.expense-scroll:focus-visible{outline:3px solid #4384ee;outline-offset:4px}
+.expense-table{width:100%;min-width:640px;border-collapse:collapse;font-size:13px;text-align:left}
+.expense-table th,.expense-table td{padding:16px 14px;border-bottom:1px solid var(--line);vertical-align:top;overflow-wrap:anywhere}
+.expense-table thead{background:var(--surface-blue);color:var(--accent)}
+.expense-table tbody th{font-weight:650;min-width:130px}
+.expense-table .expense-date{min-width:175px}.expense-date span,.expense-date small{display:block}
+.expense-table .expense-amount{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.expense-table tfoot{background:var(--surface-blue);color:var(--accent);font-weight:750}
+.expense-table tfoot th,.expense-table tfoot td{border-bottom:0}

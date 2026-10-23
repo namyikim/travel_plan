@@ -109,9 +109,9 @@
     $('tripList').replaceChildren();
     if (!trips.length) $('tripList').append(node('p', 'hint', '아직 등록한 여행이 없어요.'));
     for (const trip of trips) {
-      const button = action('', `trip-card${trip.id === selectedTrip ? ' selected' : ''}`, () => { if(pending)return; mainView='trips'; selectedTrip = trip.id; selectedDate = trip.start; render(); });
+      const button = action('', `trip-card${mainView === 'trips' && trip.id === selectedTrip ? ' selected' : ''}`, () => { if(pending)return; mainView='trips'; selectedTrip = trip.id; selectedDate = trip.start; render(); });
       button.classList.toggle('hawaii-trip-card', isHawaii(trip));
-      button.setAttribute('aria-pressed', String(trip.id === selectedTrip));
+      button.setAttribute('aria-pressed', String(mainView === 'trips' && trip.id === selectedTrip));
       button.append(node('span', 'trip-card-destination', trip.destination), node('strong', '', trip.title), node('span', '', `${trip.start} → ${trip.end}`));
       $('tripList').append(button);
     }
@@ -120,8 +120,14 @@
     $('restaurantsPanel').hidden = !['restaurants','markets'].includes(mainView);
     $('restaurantsBtn').setAttribute('aria-pressed',String(mainView === 'restaurants'));
     $('marketsBtn').setAttribute('aria-pressed',String(mainView === 'markets'));
+    $('expensesPanel').hidden = mainView !== 'expenses';
+    $('expensesBtn').setAttribute('aria-pressed', String(mainView === 'expenses'));
     if(['restaurants','markets'].includes(mainView)) { $('noTrip').hidden=true; $('tripDetail').hidden=true; mapView.clear(); renderRestaurants(); return; }
     restaurantMap.clear();
+    if (mainView === 'expenses') {
+      $('noTrip').hidden = true; $('tripDetail').hidden = true;
+      mapView.clear(); renderExpenses(state.data); return;
+    }
     $('noTrip').hidden = !!trip; $('tripDetail').hidden = !trip;
     if (!trip) { $('timeline').replaceChildren(); mapView.clear(); return; }
     if (!C.validDate(selectedDate) || selectedDate < trip.start || selectedDate > trip.end) selectedDate = trip.start;
@@ -164,6 +170,24 @@
       }else placeImages.attach(content,event.place);
     }
   }
+  function renderExpenses(data) {
+    const { items, totals } = C.expenseSummary(data);
+    $('expenseCount').textContent = `전체 여행 · 금액이 입력된 일정 ${items.length}건 · 실제 시간순`;
+    $('expenseEmpty').hidden = items.length > 0;
+    $('expenseList').replaceChildren();
+    for (const { trip, event } of items) {
+      const row = node('tr');
+      const date = node('td', 'expense-date');
+      date.append(node('span', '', `${event.date} · ${event.time || '시간 미정'}`), node('small', 'muted', C.timeZones[event.timeZone]));
+      const place = node('th', '', event.place); place.scope = 'row';
+      row.append(node('td', '', trip.title), date, place,
+        node('td', 'expense-amount', event.krw == null ? '—' : money(event.krw, 'KRW')),
+        node('td', 'expense-amount', event.usdCents == null ? '—' : money(event.usdCents / 100, 'USD')));
+      $('expenseList').append(row);
+    }
+    $('expenseTotalKRW').textContent = money(totals.krw, 'KRW');
+    $('expenseTotalUSD').textContent = money(totals.usdCents / 100, 'USD');
+  }
   const placeLabel=()=>mainView==='markets'?'마트':'맛집';
   function renderRestaurants() {
     const label=placeLabel();
@@ -200,6 +224,7 @@
   }
   $('restaurantsBtn').addEventListener('click',()=>{if(!pending){mainView='restaurants';render();}});
   $('marketsBtn').addEventListener('click',()=>{if(!pending){mainView='markets';render();}});
+  $('expensesBtn').addEventListener('click',()=>{if(!pending){mainView='expenses';render();}});
   $('newRestaurantBtn').addEventListener('click',()=>openRestaurant());
   $('restaurantForm').addEventListener('submit',event=>{
     event.preventDefault();if(pending)return;
@@ -317,7 +342,7 @@
     weatherView.clear();
     placeImages.clear();$('historyResult').replaceChildren();$('historySelect').replaceChildren();$('historySearch').value='트로피컬';
     restaurantMap.clear(); mapView.clear(); detailView='list'; $('mapDateLabel').textContent='';
-    for (const id of ['restaurantList','restaurantFormError','calendarGrid','stayList','calendarMonth','stayFormError','tripList','timeline','tripDestination','tripTitle','tripMeta','tripCosts','dayNumber','dayHeading','eventCount','connectedRepo','saveStatus','appError','settingsStatus','settingsError','tripFormError','eventFormError']) $(id).replaceChildren();
+    for (const id of ['expenseList','expenseCount','expenseTotalKRW','expenseTotalUSD','restaurantList','restaurantFormError','calendarGrid','stayList','calendarMonth','stayFormError','tripList','timeline','tripDestination','tripTitle','tripMeta','tripCosts','dayNumber','dayHeading','eventCount','connectedRepo','saveStatus','appError','settingsStatus','settingsError','tripFormError','eventFormError']) $(id).replaceChildren();
     for (const id of ['restaurantForm','tripForm','eventForm','stayForm','setupForm','unlockForm','passwordForm']) $(id).reset();
     for (const dialog of document.querySelectorAll('dialog')) if (dialog.open) dialog.close();
     $('dayPicker').value = '';

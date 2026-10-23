@@ -9,8 +9,8 @@
   <title>여행노트 · 나만의 여행 계획</title>
   <link rel="icon" href="favicon-blue.svg" type="image/svg+xml">
   <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
-  <link rel="stylesheet" href="style.css?v=weather-1">
-  <script src="core.js?v=merge-save-1" defer></script>
+  <link rel="stylesheet" href="style.css?v=expenses-1">
+  <script src="core.js?v=expenses-1" defer></script>
   <script src="crypto.js" defer></script>
   <script src="sync.js?v=recovery-1" defer></script>
   <script src="login.js?v=recovery-1" defer></script>
@@ -19,7 +19,7 @@
   <script src="map.js?v=markets-1" defer></script>
   <script src="place-images.js?v=2" defer></script>
   <script src="weather.js?v=1" defer></script>
-  <script src="app.js?v=weather-1" defer></script>
+  <script src="app.js?v=expenses-1" defer></script>
 </head>
 <body>
   <header class="site-header"><a class="brand" href="./"><span class="brand-mark" aria-hidden="true">↗</span> 여행노트 <span class="brand-en">TRAVEL NOTE</span></a><span class="header-note">가고 싶은 곳, 함께하는 시간</span></header>
@@ -54,8 +54,22 @@
       <div class="save-bar"><p id="saveStatus" role="status">저장된 기록을 불러왔어요.</p><div class="actions"><button id="reloadBtn" class="quiet">새로 불러오기</button><button id="retrySaveBtn" class="primary" hidden>저장 다시 시도</button></div></div>
       <p id="appError" class="error" role="alert"></p>
       <div class="planner-layout">
-        <aside class="trip-sidebar"><div class="section-label"><h2>나의 여행</h2><button id="newTripBtn" class="small-btn">＋ 새 여행</button></div><div id="tripList" class="trip-list"></div><button id="restaurantsBtn" class="secondary wide" aria-pressed="false">🍽️ 맛집</button><button id="marketsBtn" class="secondary wide" aria-pressed="false">🛒 마트</button><p class="sidebar-note">여행의 시작은<br>작은 계획 하나에서.</p></aside>
+        <aside class="trip-sidebar"><div class="section-label"><h2>나의 여행</h2><button id="newTripBtn" class="small-btn">＋ 새 여행</button></div><div id="tripList" class="trip-list"></div><button id="restaurantsBtn" class="secondary wide" aria-pressed="false">🍽️ 맛집</button><button id="marketsBtn" class="secondary wide" aria-pressed="false">🛒 마트</button><button id="expensesBtn" class="secondary wide" aria-pressed="false" aria-controls="expensesPanel">💰 경비지출</button><p class="sidebar-note">여행의 시작은<br>작은 계획 하나에서.</p></aside>
         <div class="planner-main">
+          <section id="expensesPanel" hidden aria-labelledby="expensesTitle">
+            <div class="section-label"><div><p class="eyebrow">TRAVEL EXPENSES</p><h2 id="expensesTitle">경비지출</h2></div></div>
+            <p id="expenseCount" class="muted" role="status"></p>
+            <p class="hint">모든 여행에서 원화 또는 달러 금액을 입력한 일정을 모았습니다. 합계는 환율 변환 없이 통화별로 표시합니다.</p>
+            <p id="expenseEmpty" class="day-empty" hidden>금액이 입력된 일정이 없어요. 일정 추가·수정에서 원화 또는 달러 금액을 입력해 주세요.</p>
+            <div class="expense-scroll" role="region" aria-label="경비지출 목록 · 좁은 화면에서 좌우로 스크롤" tabindex="0">
+              <table class="expense-table">
+                <caption class="sr-only">전체 여행의 경비지출 내역 및 통화별 합계</caption>
+                <thead><tr><th scope="col">여행</th><th scope="col">날짜·시간 (현지 기준)</th><th scope="col">일정·장소</th><th scope="col" class="expense-amount">원화 (KRW)</th><th scope="col" class="expense-amount">달러 (USD)</th></tr></thead>
+                <tbody id="expenseList"></tbody>
+                <tfoot aria-live="polite"><tr><th scope="row" colspan="3">합계 총액</th><td id="expenseTotalKRW" class="expense-amount"></td><td id="expenseTotalUSD" class="expense-amount"></td></tr></tfoot>
+              </table>
+            </div>
+          </section>
           <section id="restaurantsPanel" hidden aria-labelledby="restaurantsTitle">
             <div class="section-label"><div><p class="eyebrow">ISLAND PLACE NOTES</p><h2 id="restaurantsTitle">맛집</h2></div><button id="newRestaurantBtn" class="primary">＋ 맛집 등록</button></div>
             <p id="placesHelp" class="hint">섬별로 가고 싶은 맛집을 모아보세요. 등록·수정하면 자동 저장됩니다.</p>
