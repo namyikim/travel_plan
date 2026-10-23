@@ -40,6 +40,7 @@
       session.update(data=>C.upsertRestaurant(data,{...item,mapLocation:location}));markChanged();
     }
   });
+  let expenseRateAttempted = false, expenseRateVersion = 0;
   let calendarMonth = '', calendarTrip = '';
   let savingChanges = false;
   let saveMessage = '저장된 기록을 불러왔어요.';
@@ -172,21 +173,52 @@
   }
   function renderExpenses(data) {
     const { items, totals } = C.expenseSummary(data);
-    $('expenseCount').textContent = `전체 여행 · 금액이 입력된 일정 ${items.length}건 · 실제 시간순`;
+    $('expenseCount').textContent = `금액이 입력된 일정 ${items.length}건 · 실제 시간순`;
     $('expenseEmpty').hidden = items.length > 0;
     $('expenseList').replaceChildren();
-    for (const { trip, event } of items) {
+    for (const { event } of items) {
       const row = node('tr');
       const date = node('td', 'expense-date');
       date.append(node('span', '', `${event.date} · ${event.time || '시간 미정'}`), node('small', 'muted', C.timeZones[event.timeZone]));
       const place = node('th', '', event.place); place.scope = 'row';
-      row.append(node('td', '', trip.title), date, place,
+      row.append(date, place,
         node('td', 'expense-amount', event.krw == null ? '—' : money(event.krw, 'KRW')),
         node('td', 'expense-amount', event.usdCents == null ? '—' : money(event.usdCents / 100, 'USD')));
       $('expenseList').append(row);
     }
     $('expenseTotalKRW').textContent = money(totals.krw, 'KRW');
     $('expenseTotalUSD').textContent = money(totals.usdCents / 100, 'USD');
+    renderExpenseTotal(totals);
+  }
+  function renderExpenseTotal(totals = C.expenseSummary(session.snapshot().data).totals) {
+    try {
+      const total = totals.usdCents === 0 ? totals.krw : C.expenseTotalKRW(totals, $('expenseRate').value);
+      $('expenseConvertedTotal').textContent = money(total, 'KRW');
+    } catch (error) {
+      $('expenseConvertedTotal').textContent = $('expenseRate').value ? error.message : '환율을 입력해 주세요.';
+    }
+  }
+  async function loadExpenseRate() {
+    expenseRateAttempted = true;
+    const version = ++expenseRateVersion;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+    $('expenseRateStatus').textContent = '최신 기준환율을 불러오는 중…';
+    try {
+      const response = await fetch('https://api.frankfurter.dev/v2/rate/usd/krw', { signal: controller.signal });
+      if (!response.ok) throw new Error('환율 조회 실패');
+      const result = await response.json();
+      if (result.base !== 'USD' || result.quote !== 'KRW' || !Number.isFinite(result.rate) || !C.validDate(result.date)) throw new Error('잘못된 환율 응답');
+      const rate = result.rate.toFixed(4);
+      C.expenseTotalKRW({ usdCents: 100, krw: 0 }, rate);
+      if (version !== expenseRateVersion || !session.snapshot().unlocked) return;
+      $('expenseRate').value = rate;
+      $('expenseRateStatus').textContent = `${result.date} 기준 · Frankfurter · 1 USD = ${Number(rate).toLocaleString('ko-KR', { maximumFractionDigits: 4 })}원`;
+      renderExpenseTotal();
+    } catch (error) {
+      if (version !== expenseRateVersion || !session.snapshot().unlocked) return;
+      $('expenseRateStatus').textContent = '환율을 불러오지 못했어요. 직접 입력하거나 최신 환율 버튼으로 다시 시도해 주세요. 기존 입력값은 유지됩니다.';
+    } finally { clearTimeout(timeout); }
   }
   const placeLabel=()=>mainView==='markets'?'마트':'맛집';
   function renderRestaurants() {
@@ -224,7 +256,13 @@
   }
   $('restaurantsBtn').addEventListener('click',()=>{if(!pending){mainView='restaurants';render();}});
   $('marketsBtn').addEventListener('click',()=>{if(!pending){mainView='markets';render();}});
-  $('expensesBtn').addEventListener('click',()=>{if(!pending){mainView='expenses';render();}});
+  $('expensesBtn').addEventListener('click',()=>{if(!pending){mainView='expenses';render();if(!expenseRateAttempted)loadExpenseRate();}});
+  $('refreshExpenseRateBtn').addEventListener('click',()=>{if(!pending)loadExpenseRate();});
+  $('expenseRate').addEventListener('input',()=>{
+    ++expenseRateVersion;
+    $('expenseRateStatus').textContent = '직접 입력한 환율 적용';
+    renderExpenseTotal();
+  });
   $('newRestaurantBtn').addEventListener('click',()=>openRestaurant());
   $('restaurantForm').addEventListener('submit',event=>{
     event.preventDefault();if(pending)return;
@@ -339,6 +377,8 @@
     if (id === 'settingsDialog') $('passwordForm').reset();
   }
   function clearSensitiveDOM() {
+    ++expenseRateVersion; expenseRateAttempted = false; $('expenseRate').value = '';
+    $('expenseRateStatus').replaceChildren(); $('expenseConvertedTotal').replaceChildren();
     weatherView.clear();
     placeImages.clear();$('historyResult').replaceChildren();$('historySelect').replaceChildren();$('historySearch').value='트로피컬';
     restaurantMap.clear(); mapView.clear(); detailView='list'; $('mapDateLabel').textContent='';

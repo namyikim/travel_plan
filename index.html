@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f2f6fc">
   <meta name="referrer" content="strict-origin-when-cross-origin">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https:; connect-src 'self' https://api.github.com https://raw.githubusercontent.com https://nominatim.openstreetmap.org https://router.project-osrm.org https://en.wikipedia.org https://ko.wikipedia.org https://api.weather.gov https://archive-api.open-meteo.com; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https:; connect-src 'self' https://api.github.com https://raw.githubusercontent.com https://nominatim.openstreetmap.org https://router.project-osrm.org https://en.wikipedia.org https://ko.wikipedia.org https://api.weather.gov https://archive-api.open-meteo.com https://api.frankfurter.dev; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
   <title>여행노트 · 나만의 여행 계획</title>
   <link rel="icon" href="favicon-blue.svg" type="image/svg+xml">
   <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
-  <link rel="stylesheet" href="style.css?v=expenses-1">
-  <script src="core.js?v=expenses-1" defer></script>
+  <link rel="stylesheet" href="style.css?v=expenses-2">
+  <script src="core.js?v=expenses-2" defer></script>
   <script src="crypto.js" defer></script>
   <script src="sync.js?v=recovery-1" defer></script>
   <script src="login.js?v=recovery-1" defer></script>
@@ -19,7 +19,7 @@
   <script src="map.js?v=markets-1" defer></script>
   <script src="place-images.js?v=2" defer></script>
   <script src="weather.js?v=1" defer></script>
-  <script src="app.js?v=expenses-1" defer></script>
+  <script src="app.js?v=expenses-2" defer></script>
 </head>
 <body>
   <header class="site-header"><a class="brand" href="./"><span class="brand-mark" aria-hidden="true">↗</span> 여행노트 <span class="brand-en">TRAVEL NOTE</span></a><span class="header-note">가고 싶은 곳, 함께하는 시간</span></header>
@@ -59,14 +59,15 @@
           <section id="expensesPanel" hidden aria-labelledby="expensesTitle">
             <div class="section-label"><div><p class="eyebrow">TRAVEL EXPENSES</p><h2 id="expensesTitle">경비지출</h2></div></div>
             <p id="expenseCount" class="muted" role="status"></p>
-            <p class="hint">모든 여행에서 원화 또는 달러 금액을 입력한 일정을 모았습니다. 합계는 환율 변환 없이 통화별로 표시합니다.</p>
+            <p class="hint">금액을 입력한 일정을 모았습니다. 달러 합계에 적용 환율을 곱한 뒤 원화 지출을 더합니다. 환산액은 원 단위로 반올림하며 카드·환전 수수료는 포함하지 않습니다.</p>
+            <div class="expense-rate"><label for="expenseRate">적용 환율 · 1 USD당 원화</label><div class="actions"><input id="expenseRate" type="number" min="0.0001" max="1000000" step="0.0001" inputmode="decimal" placeholder="환율 입력" aria-describedby="expenseRateStatus"><button id="refreshExpenseRateBtn" class="secondary" type="button">최신 환율</button></div><p id="expenseRateStatus" class="hint" role="status"></p><p class="hint">출처: <a href="https://frankfurter.dev/" target="_blank" rel="noopener noreferrer">Frankfurter</a> 일별 기준환율 · 직접 수정 가능 · 입력 환율은 현재 접속 중 적용됩니다.</p></div>
             <p id="expenseEmpty" class="day-empty" hidden>금액이 입력된 일정이 없어요. 일정 추가·수정에서 원화 또는 달러 금액을 입력해 주세요.</p>
             <div class="expense-scroll" role="region" aria-label="경비지출 목록 · 좁은 화면에서 좌우로 스크롤" tabindex="0">
               <table class="expense-table">
                 <caption class="sr-only">전체 여행의 경비지출 내역 및 통화별 합계</caption>
-                <thead><tr><th scope="col">여행</th><th scope="col">날짜·시간 (현지 기준)</th><th scope="col">일정·장소</th><th scope="col" class="expense-amount">원화 (KRW)</th><th scope="col" class="expense-amount">달러 (USD)</th></tr></thead>
+                <thead><tr><th scope="col">날짜·시간 (현지 기준)</th><th scope="col">일정·장소</th><th scope="col" class="expense-amount">원화 (KRW)</th><th scope="col" class="expense-amount">달러 (USD)</th></tr></thead>
                 <tbody id="expenseList"></tbody>
-                <tfoot aria-live="polite"><tr><th scope="row" colspan="3">합계 총액</th><td id="expenseTotalKRW" class="expense-amount"></td><td id="expenseTotalUSD" class="expense-amount"></td></tr></tfoot>
+                <tfoot aria-live="polite"><tr><th scope="row" colspan="2">통화별 합계</th><td id="expenseTotalKRW" class="expense-amount"></td><td id="expenseTotalUSD" class="expense-amount"></td></tr><tr class="expense-grand-total"><th scope="row" colspan="2">총 지출 (원화 환산)</th><td id="expenseConvertedTotal" class="expense-amount" colspan="2"></td></tr></tfoot>
               </table>
             </div>
           </section>

@@ -55,3 +55,5 @@ select{font:inherit;width:100%;padding:12px 14px;border:1px solid var(--line);bo
 .expense-table .expense-amount{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
 .expense-table tfoot{background:var(--surface-blue);color:var(--accent);font-weight:750}
 .expense-table tfoot th,.expense-table tfoot td{border-bottom:0}
+
+.expense-rate{margin:18px 0 24px}.expense-rate .actions{flex-wrap:wrap}.expense-rate input{max-width:220px}.expense-rate label{margin-top:0}.expense-rate .hint{margin:8px 0}.expense-grand-total{font-size:16px}.expense-grand-total th,.expense-grand-total td{border-top:2px solid var(--line)}.expense-grand-total .expense-amount{white-space:normal;overflow-wrap:anywhere}

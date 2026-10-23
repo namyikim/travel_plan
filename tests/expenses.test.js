@@ -54,19 +54,69 @@ test('expense rendering keeps currencies separate and clears stale rows and tota
     append(...children) { this.children.push(...children); },
     replaceChildren(...children) { this.children = children; }
   });
-  const elements = Object.fromEntries(['expenseCount', 'expenseEmpty', 'expenseList', 'expenseTotalKRW', 'expenseTotalUSD'].map(id => [id, node('div')]));
+  const elements = Object.fromEntries(['expenseCount', 'expenseEmpty', 'expenseList', 'expenseTotalKRW', 'expenseTotalUSD', 'expenseRate', 'expenseConvertedTotal'].map(id => [id, node('div')]));
+  elements.expenseRate.value = '1400';
   const context = vm.createContext({ C, node, $: id => elements[id], money: (value, currency) => `${currency} ${value}` });
-  vm.runInContext(source.slice(source.indexOf('  function renderExpenses('), source.indexOf('  const placeLabel=')), context);
+  vm.runInContext(source.slice(source.indexOf('  function renderExpenses('), source.indexOf('  async function loadExpenseRate(')), context);
   context.renderExpenses({ trips: [{ id: 'a', title: '<여행>', events: [event('meal', { krw: 0, usdCents: 12345 })] }] });
   const row = elements.expenseList.children[0];
-  assert.equal(row.children[0].textContent, '<여행>');
-  assert.equal(row.children[3].textContent, 'KRW 0');
-  assert.equal(row.children[4].textContent, 'USD 123.45');
+  assert.equal(row.children.length, 4);
+  assert.equal(row.children[1].textContent, 'meal');
+  assert.equal(row.children[2].textContent, 'KRW 0');
+  assert.equal(row.children[3].textContent, 'USD 123.45');
   assert.equal(elements.expenseTotalUSD.textContent, 'USD 123.45');
   assert.equal(elements.expenseEmpty.hidden, true);
+  assert.equal(elements.expenseConvertedTotal.textContent, 'KRW 172830');
+  elements.expenseRate.value = '';
+  context.renderExpenseTotal({usdCents: 100, krw: 500});
+  assert.equal(elements.expenseConvertedTotal.textContent, '환율을 입력해 주세요.');
   context.renderExpenses({ trips: [] });
   assert.equal(elements.expenseList.children.length, 0);
   assert.equal(elements.expenseEmpty.hidden, false);
   assert.equal(elements.expenseTotalKRW.textContent, 'KRW 0');
   assert.equal(elements.expenseTotalUSD.textContent, 'USD 0');
+  assert.equal(elements.expenseConvertedTotal.textContent, 'KRW 0');
+});
+
+
+test('KRW total converts combined USD cents and rounds once to nearest won', () => {
+  assert.equal(C.expenseTotalKRW({usdCents: 12345, krw: 50000}, '1400'), 222830);
+  assert.equal(C.expenseTotalKRW({usdCents: 30, krw: 1000}, '1432.5678'), 1430);
+  assert.equal(C.expenseTotalKRW({usdCents: 1, krw: 0}, '1450'), 15);
+  assert.equal(C.expenseTotalKRW({usdCents: 1, krw: 0}, '1449.9999'), 14);
+  for (const rate of ['', '0', '-1', 'Infinity', '1e3', '1400.12345', '1000001']) {
+    assert.throws(() => C.expenseTotalKRW({usdCents: 100, krw: 0}, rate));
+  }
+  assert.throws(() => C.expenseTotalKRW({usdCents: 100, krw: Number.MAX_SAFE_INTEGER}, '1400'), /합계/);
+});
+
+test('rate loading applies dated rates, preserves manual input and handles network failure', async () => {
+  const fs = require('node:fs'), vm = require('node:vm');
+  const source = fs.readFileSync(require('node:path').join(__dirname, '../app.js'), 'utf8');
+  const elements = {expenseRate: {value: ''}, expenseRateStatus: {textContent: ''}};
+  let resolveResponse, rendered = 0;
+  const context = vm.createContext({ C, $: id => elements[id], AbortController, setTimeout, clearTimeout,
+    expenseRateAttempted: false, expenseRateVersion: 0,
+    session: {snapshot: () => ({unlocked: true})}, renderExpenseTotal: () => rendered++,
+    fetch: async () => ({ok: true, json: async () => ({base: 'USD', quote: 'KRW', date: '2026-10-22', rate: 1432.5678})})
+  });
+  vm.runInContext(source.slice(source.indexOf('  async function loadExpenseRate('), source.indexOf('  const placeLabel=')), context);
+  await context.loadExpenseRate();
+  assert.equal(elements.expenseRate.value, '1432.5678');
+  assert.match(elements.expenseRateStatus.textContent, /2026-10-22/);
+  assert.equal(rendered, 1);
+  context.fetch = () => new Promise(resolve => { resolveResponse = resolve; });
+  const loading = context.loadExpenseRate();
+  context.expenseRateVersion++;
+  elements.expenseRate.value = '1500';
+  resolveResponse({ok: true, json: async () => ({base: 'USD', quote: 'KRW', date:'2026-10-22', rate:1400})});
+  await loading;
+  assert.equal(elements.expenseRate.value, '1500');
+  context.fetch = async () => { throw Error('offline'); };
+  await context.loadExpenseRate();
+  assert.match(elements.expenseRateStatus.textContent, /직접 입력/);
+  assert.equal(elements.expenseRate.value, '1500');
+  context.fetch = async () => ({ok:true, json:async()=>({base: 'USD', quote: 'KRW', date:'invalid',rate:1400})});
+  await context.loadExpenseRate();
+  assert.equal(elements.expenseRate.value, '1500');
 });

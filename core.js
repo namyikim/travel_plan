@@ -158,6 +158,14 @@
       return total;
     }, { usdCents: 0, krw: 0 });
   }
+  function expenseTotalKRW(totals, rate) {
+    if (typeof rate !== 'string' || !/^\d+(?:\.\d{1,4})?$/.test(rate.trim()) || Number(rate) <= 0 || Number(rate) > 1000000) fail('환율은 0보다 크고 1,000,000 이하인 숫자로 소수점 네 자리까지 입력해 주세요.');
+    const [whole, fraction = ''] = rate.trim().split('.');
+    const scaledRate = BigInt(whole) * 10000n + BigInt(fraction.padEnd(4, '0'));
+    const total = BigInt(totals.krw) + (BigInt(totals.usdCents) * scaledRate + 500000n) / 1000000n;
+    if (total > BigInt(Number.MAX_SAFE_INTEGER)) fail('원화 환산 합계가 너무 큽니다.');
+    return Number(total);
+  }
   function expenseSummary(data) {
     const items = data.trips.flatMap(trip => trip.events
       .filter(event => event.usdCents != null || event.krw != null)
@@ -288,5 +296,5 @@
     const normalize=value=>({...validateData(value),restaurants:validateData(value).restaurants || []});
     return validateData(merge(normalize(base),normalize(local),normalize(remote),'여행 기록'));
   }
-  return { expenseSummary, mergeData, islands, upsertRestaurant, removeRestaurant, categories, eventCategory, upsertStay, removeStay, calendarDays, calendarWeeks, timeZones, eventInstant, compareEvents, parseMoney, tripCosts, emptyData, validDate, validateTrip, validateEvent, validateData, upsertTrip, upsertEvent, removeTrip, removeEvent, shiftDate, dayCount };
+  return { expenseTotalKRW, expenseSummary, mergeData, islands, upsertRestaurant, removeRestaurant, categories, eventCategory, upsertStay, removeStay, calendarDays, calendarWeeks, timeZones, eventInstant, compareEvents, parseMoney, tripCosts, emptyData, validDate, validateTrip, validateEvent, validateData, upsertTrip, upsertEvent, removeTrip, removeEvent, shiftDate, dayCount };
 }));
