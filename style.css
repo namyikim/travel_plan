@@ -57,3 +57,8 @@ select{font:inherit;width:100%;padding:12px 14px;border:1px solid var(--line);bo
 .expense-table tfoot th,.expense-table tfoot td{border-bottom:0}
 
 .expense-rate{margin:18px 0 24px}.expense-rate .actions{flex-wrap:wrap}.expense-rate input{max-width:220px}.expense-rate label{margin-top:0}.expense-rate .hint{margin:8px 0}.expense-grand-total{font-size:16px}.expense-grand-total th,.expense-grand-total td{border-top:2px solid var(--line)}.expense-grand-total .expense-amount{white-space:normal;overflow-wrap:anywhere}
+
+#packingBtn{text-align:left;margin-top:0;margin-bottom:24px}#packingBtn[aria-pressed="true"]{background:#2463d4;color:white}
+.packing-form{margin:20px 0 24px}.packing-add{display:flex;gap:10px}.packing-add input{flex:1;min-width:0}.packing-add button{flex-shrink:0}.packing-form .error{margin:8px 0}
+.packing-list{list-style:none;padding:0;margin:16px 0;display:grid;gap:10px}.packing-item{display:flex;align-items:center;gap:12px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 14px}
+.packing-check{display:flex;align-items:center;gap:12px;flex:1;min-width:0;margin:0;min-height:44px;cursor:pointer;font-size:14px}.packing-check input{width:20px;height:20px;flex-shrink:0;accent-color:var(--accent)}.packing-check span{overflow-wrap:anywhere}.packing-item.packed .packing-check span{text-decoration:line-through;color:var(--muted)}.packing-item>button{flex-shrink:0}

@@ -123,8 +123,14 @@
     $('marketsBtn').setAttribute('aria-pressed',String(mainView === 'markets'));
     $('expensesPanel').hidden = mainView !== 'expenses';
     $('expensesBtn').setAttribute('aria-pressed', String(mainView === 'expenses'));
+    $('packingPanel').hidden = mainView !== 'packing';
+    $('packingBtn').setAttribute('aria-pressed', String(mainView === 'packing'));
     if(['restaurants','markets'].includes(mainView)) { $('noTrip').hidden=true; $('tripDetail').hidden=true; mapView.clear(); renderRestaurants(); return; }
     restaurantMap.clear();
+    if (mainView === 'packing') {
+      $('noTrip').hidden = true; $('tripDetail').hidden = true;
+      mapView.clear(); renderPacking(state.data); return;
+    }
     if (mainView === 'expenses') {
       $('noTrip').hidden = true; $('tripDetail').hidden = true;
       mapView.clear(); renderExpenses(state.data); return;
@@ -171,6 +177,45 @@
       }else placeImages.attach(content,event.place);
     }
   }
+  function renderPacking(data) {
+    const items = data.packingItems || [];
+    $('packingCount').textContent = `전체 ${items.length}개 · 준비 완료 ${items.filter(item => item.packed).length}개`;
+    $('packingEmpty').hidden = items.length > 0;
+    $('packingList').replaceChildren();
+    for (const item of items) {
+      const row = node('li', `packing-item${item.packed ? ' packed' : ''}`);
+      const label = node('label', 'packing-check'), checkbox = node('input');
+      checkbox.type = 'checkbox'; checkbox.checked = item.packed; checkbox.disabled = pending;
+      checkbox.addEventListener('change', () => {
+        if (pending) { checkbox.checked = item.packed; return; }
+        session.update(current => C.upsertPackingItem(current, { ...item, packed: checkbox.checked }));
+        markChanged();
+      });
+      label.append(checkbox, node('span', '', item.name));
+      const remove = action('삭제', 'quiet', () => {
+        if (pending || !confirm(`‘${item.name}’ 준비물을 삭제할까요?`)) return;
+        session.update(current => C.removePackingItem(current, item.id));
+        markChanged();
+      });
+      remove.setAttribute('aria-label', `${item.name} 삭제`); remove.disabled = pending;
+      row.append(label, remove); $('packingList').append(row);
+    }
+  }
+  $('packingBtn').addEventListener('click', () => {
+    if (pending) return;
+    mainView = 'packing'; render(); $('packingName').focus();
+  });
+  $('packingForm').addEventListener('submit', async event => {
+    event.preventDefault(); if (pending) return;
+    $('packingFormError').textContent = '';
+    try {
+      session.update(data => C.upsertPackingItem(data, { id: crypto.randomUUID(), name: $('packingName').value, packed: false }));
+      $('packingForm').reset();
+      $('appError').textContent = '';
+      await persistChanges();
+      if (session.snapshot().unlocked && mainView === 'packing') $('packingName').focus();
+    } catch (error) { $('packingFormError').textContent = error.message; }
+  });
   function renderExpenses(data) {
     const { items, totals } = C.expenseSummary(data);
     $('expenseCount').textContent = `금액이 입력된 일정 ${items.length}건 · 실제 시간순`;
@@ -377,6 +422,8 @@
     if (id === 'settingsDialog') $('passwordForm').reset();
   }
   function clearSensitiveDOM() {
+    $('packingForm').reset();
+    for (const id of ['packingList', 'packingCount', 'packingFormError']) $(id).replaceChildren();
     ++expenseRateVersion; expenseRateAttempted = false; $('expenseRate').value = '';
     $('expenseRateStatus').replaceChildren(); $('expenseConvertedTotal').replaceChildren();
     weatherView.clear();

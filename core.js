@@ -220,6 +220,28 @@
       data.restaurants = raw.restaurants.map(validateRestaurant);
       unique(data.restaurants);
     }
+    if (raw.packingItems !== undefined) {
+      if (!Array.isArray(raw.packingItems)) fail('준비물 목록을 확인해 주세요.');
+      data.packingItems = raw.packingItems.map(validatePackingItem);
+      unique(data.packingItems);
+    }
+    return data;
+  }
+  function validatePackingItem(raw) {
+    if (!raw || typeof raw !== 'object') fail('준비물을 확인해 주세요.');
+    if (raw.packed !== undefined && typeof raw.packed !== 'boolean') fail('준비 완료 여부를 확인해 주세요.');
+    return { id: id(raw.id), name: text(raw.name, '준비물 이름', 200, true), packed: raw.packed ?? false };
+  }
+  function upsertPackingItem(raw, input) {
+    const data = validateData(raw), item = validatePackingItem(input);
+    data.packingItems ||= [];
+    const index = data.packingItems.findIndex(entry => entry.id === item.id);
+    if (index < 0) data.packingItems.push(item); else data.packingItems[index] = item;
+    return data;
+  }
+  function removePackingItem(raw, itemId) {
+    const data = validateData(raw);
+    data.packingItems = (data.packingItems || []).filter(item => item.id !== itemId);
     return data;
   }
   const islands = {oahu:'오하우', maui:'마우이', bigisland:'빅아일랜드'};
@@ -293,8 +315,11 @@
       }
       throw Object.assign(new Error(`두 기기에서 같은 항목을 다르게 수정했습니다 (${path}). 현재 입력은 유지됩니다. 암호화 백업을 받은 후 저장 이력을 확인해 주세요.`),{code:'MERGE_CONFLICT'});
     }
-    const normalize=value=>({...validateData(value),restaurants:validateData(value).restaurants || []});
+    const normalize=value=>{
+      const data = validateData(value);
+      return {...data, restaurants: data.restaurants || [], packingItems: data.packingItems || []};
+    };
     return validateData(merge(normalize(base),normalize(local),normalize(remote),'여행 기록'));
   }
-  return { expenseTotalKRW, expenseSummary, mergeData, islands, upsertRestaurant, removeRestaurant, categories, eventCategory, upsertStay, removeStay, calendarDays, calendarWeeks, timeZones, eventInstant, compareEvents, parseMoney, tripCosts, emptyData, validDate, validateTrip, validateEvent, validateData, upsertTrip, upsertEvent, removeTrip, removeEvent, shiftDate, dayCount };
+  return { upsertPackingItem, removePackingItem, expenseTotalKRW, expenseSummary, mergeData, islands, upsertRestaurant, removeRestaurant, categories, eventCategory, upsertStay, removeStay, calendarDays, calendarWeeks, timeZones, eventInstant, compareEvents, parseMoney, tripCosts, emptyData, validDate, validateTrip, validateEvent, validateData, upsertTrip, upsertEvent, removeTrip, removeEvent, shiftDate, dayCount };
 }));

@@ -9,8 +9,8 @@
   <title>여행노트 · 나만의 여행 계획</title>
   <link rel="icon" href="favicon-blue.svg" type="image/svg+xml">
   <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
-  <link rel="stylesheet" href="style.css?v=expenses-2">
-  <script src="core.js?v=expenses-2" defer></script>
+  <link rel="stylesheet" href="style.css?v=packing-1">
+  <script src="core.js?v=packing-1" defer></script>
   <script src="crypto.js" defer></script>
   <script src="sync.js?v=recovery-1" defer></script>
   <script src="login.js?v=recovery-1" defer></script>
@@ -19,7 +19,7 @@
   <script src="map.js?v=markets-1" defer></script>
   <script src="place-images.js?v=2" defer></script>
   <script src="weather.js?v=1" defer></script>
-  <script src="app.js?v=expenses-2" defer></script>
+  <script src="app.js?v=packing-1" defer></script>
 </head>
 <body>
   <header class="site-header"><a class="brand" href="./"><span class="brand-mark" aria-hidden="true">↗</span> 여행노트 <span class="brand-en">TRAVEL NOTE</span></a><span class="header-note">가고 싶은 곳, 함께하는 시간</span></header>
@@ -54,8 +54,20 @@
       <div class="save-bar"><p id="saveStatus" role="status">저장된 기록을 불러왔어요.</p><div class="actions"><button id="reloadBtn" class="quiet">새로 불러오기</button><button id="retrySaveBtn" class="primary" hidden>저장 다시 시도</button></div></div>
       <p id="appError" class="error" role="alert"></p>
       <div class="planner-layout">
-        <aside class="trip-sidebar"><div class="section-label"><h2>나의 여행</h2><button id="newTripBtn" class="small-btn">＋ 새 여행</button></div><div id="tripList" class="trip-list"></div><button id="restaurantsBtn" class="secondary wide" aria-pressed="false">🍽️ 맛집</button><button id="marketsBtn" class="secondary wide" aria-pressed="false">🛒 마트</button><button id="expensesBtn" class="secondary wide" aria-pressed="false" aria-controls="expensesPanel">💰 경비지출</button><p class="sidebar-note">여행의 시작은<br>작은 계획 하나에서.</p></aside>
+        <aside class="trip-sidebar"><div class="section-label"><h2>나의 여행</h2><button id="newTripBtn" class="small-btn">＋ 새 여행</button></div><div id="tripList" class="trip-list"></div><button id="restaurantsBtn" class="secondary wide" aria-pressed="false">🍽️ 맛집</button><button id="marketsBtn" class="secondary wide" aria-pressed="false">🛒 마트</button><button id="expensesBtn" class="secondary wide" aria-pressed="false" aria-controls="expensesPanel">💰 경비지출</button><button id="packingBtn" class="secondary wide" aria-pressed="false" aria-controls="packingPanel">🧳 준비물</button><p class="sidebar-note">여행의 시작은<br>작은 계획 하나에서.</p></aside>
         <div class="planner-main">
+          <section id="packingPanel" hidden aria-labelledby="packingTitle">
+            <div class="section-label"><div><p class="eyebrow">PACKING CHECKLIST</p><h2 id="packingTitle">준비물</h2></div></div>
+            <p class="hint">필요한 준비물을 하나씩 추가하고, 챙긴 항목은 체크하세요. 추가·체크·삭제하면 자동 저장됩니다.</p>
+            <form id="packingForm" class="packing-form">
+              <label for="packingName">준비물 이름</label>
+              <div class="packing-add"><input id="packingName" required maxlength="200" placeholder="예: 여권, 충전기, 수영복" autocomplete="off"><button type="submit" class="primary">＋ 추가</button></div>
+              <p id="packingFormError" class="error" role="alert"></p>
+            </form>
+            <p id="packingCount" class="muted" role="status"></p>
+            <p id="packingEmpty" class="day-empty">아직 준비물이 없어요. 위에서 첫 준비물을 추가해 주세요.</p>
+            <ul id="packingList" class="packing-list" aria-label="전체 준비물 목록"></ul>
+          </section>
           <section id="expensesPanel" hidden aria-labelledby="expensesTitle">
             <div class="section-label"><div><p class="eyebrow">TRAVEL EXPENSES</p><h2 id="expensesTitle">경비지출</h2></div></div>
             <p id="expenseCount" class="muted" role="status"></p>
