@@ -336,6 +336,28 @@
     if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key)||pending)return;
     event.preventDefault();const next=event.key==='Home'?'list':event.key==='End'?'map':detailView==='map'?'list':'map';switchDetail(next);$(next==='map'?'mapTab':'listTab').focus();
   });
+  // Daily headings for the February 2027 Hawaii itinerary.
+  const hawaiiDayThemes = {
+    '2027-02-11': '🌺 알로하, 다시 만난 하와이',
+    '2027-02-12': '🎆 와이키키 산책과 불꽃놀이',
+    '2027-02-13': '🏝️ 마우이에 우리 집 만들기',
+    '2027-02-14': '🐢 느긋하게 만나는 마우이',
+    '2027-02-15': '🐠 바닷속 탐험과 초록 계곡',
+    '2027-02-16': '🚗 마우이 남쪽 풍경 드라이브',
+    '2027-02-17': '🌄 구름 위에서 맞는 일몰',
+    '2027-02-18': '🐋 고래를 만나고 서쪽 바다로',
+    '2027-02-19': '🌴 빅아일랜드로, 리조트에 도착하다',
+    '2027-02-20': '🌅 리조트에서 쉬고 산에서 노을 보기',
+    '2027-02-21': '☕ 코나의 바다·커피·역사',
+    '2027-02-22': '🌿 해안길 따라 초록빛 힐로로',
+    '2027-02-23': '🌋 화산이 만든 섬을 탐험하다',
+    '2027-02-24': '🛍️ 다시 오아후, 여행의 마지막 여유',
+    '2027-02-25': '✈️ 아쉬움을 담아, 하와이 안녕',
+    '2027-02-26': '🏠 추억을 안고 집으로'
+  };
+  function calendarDayTheme(trip, day) {
+    return day.inTrip && isHawaii(trip) ? hawaiiDayThemes[day.date] || '' : '';
+  }
   function renderCalendar(trip) {
     if (calendarTrip !== trip.id || calendarMonth < trip.start.slice(0,7) || calendarMonth > trip.end.slice(0,7)) calendarMonth = trip.start.slice(0,7);
     calendarTrip = trip.id;
@@ -352,8 +374,10 @@
     $('calendarGrid').replaceChildren();
     for (const week of C.calendarWeeks(trip, calendarMonth)) {
       const weekNode=node('div','calendar-week');
-      weekNode.style.gridTemplateRows=`28px ${'26px '.repeat(week.lanes)}minmax(94px,auto)`;
-      weekNode.style.setProperty('--stay-space', `${28+week.lanes*26}px`);
+      const hasThemes = week.days.some(day => calendarDayTheme(trip, day));
+      const headingHeight = hasThemes ? 124 : 28;
+      weekNode.style.gridTemplateRows=`${headingHeight}px ${'26px '.repeat(week.lanes)}minmax(94px,auto)`;
+      weekNode.style.setProperty('--stay-space', `${headingHeight+week.lanes*26}px`);
       for (const [column,day] of week.days.entries()) {
       if (!day.date) { const gap = node('div','calendar-gap'); gap.setAttribute('aria-hidden','true'); gap.style.gridColumn=String(column+1); gap.style.gridRow=`1 / ${week.lanes+3}`; weekNode.append(gap); continue; }
       const cell = action('', `calendar-day${day.date === selectedDate ? ' selected' : ''}`, () => {
@@ -362,9 +386,11 @@
       });
       cell.style.gridColumn=String(column+1); cell.style.gridRow=`1 / ${week.lanes+3}`;
       cell.disabled = pending || !day.inTrip;
-      cell.setAttribute('aria-label', `${day.date} · ${day.stays.map(s=>s.name).join(', ')} · 일정 ${day.events.length}개`);
+      const theme = calendarDayTheme(trip, day);
+      cell.setAttribute('aria-label', `${day.date}${theme ? ` · ${theme}` : ''} · ${day.stays.map(s=>s.name).join(', ')} · 일정 ${day.events.length}개`);
       if (day.date === selectedDate) cell.setAttribute('aria-current','date');
       cell.append(node('span','calendar-date',String(Number(day.date.slice(8)))));
+      if (theme) cell.append(node('span','calendar-day-theme',theme));
       for (const event of day.events.slice(0,3)) {
         const category = C.categories[C.eventCategory(event)];
         const line = node('span',`calendar-event category-${C.eventCategory(event)}`,`${category[0]} ${event.place}`);
