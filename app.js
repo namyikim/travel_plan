@@ -374,10 +374,7 @@
     $('calendarGrid').replaceChildren();
     for (const week of C.calendarWeeks(trip, calendarMonth)) {
       const weekNode=node('div','calendar-week');
-      const hasThemes = week.days.some(day => calendarDayTheme(trip, day));
-      const headingHeight = hasThemes ? 124 : 28;
-      weekNode.style.gridTemplateRows=`${headingHeight}px ${'26px '.repeat(week.lanes)}minmax(94px,auto)`;
-      weekNode.style.setProperty('--stay-space', `${headingHeight+week.lanes*26}px`);
+      weekNode.style.gridTemplateRows=`auto ${'26px '.repeat(week.lanes)}minmax(94px,auto)`;
       for (const [column,day] of week.days.entries()) {
       if (!day.date) { const gap = node('div','calendar-gap'); gap.setAttribute('aria-hidden','true'); gap.style.gridColumn=String(column+1); gap.style.gridRow=`1 / ${week.lanes+3}`; weekNode.append(gap); continue; }
       const cell = action('', `calendar-day${day.date === selectedDate ? ' selected' : ''}`, () => {
@@ -389,15 +386,19 @@
       const theme = calendarDayTheme(trip, day);
       cell.setAttribute('aria-label', `${day.date}${theme ? ` · ${theme}` : ''} · ${day.stays.map(s=>s.name).join(', ')} · 일정 ${day.events.length}개`);
       if (day.date === selectedDate) cell.setAttribute('aria-current','date');
-      cell.append(node('span','calendar-date',String(Number(day.date.slice(8)))));
-      if (theme) cell.append(node('span','calendar-day-theme',theme));
+      const heading = node('span','calendar-day-heading');
+      heading.append(node('span','calendar-date',String(Number(day.date.slice(8)))));
+      if (theme) heading.append(node('span','calendar-day-theme',theme));
+      const events = node('span','calendar-day-events');
+      events.style.gridRow = String(week.lanes+2);
+      cell.append(heading, events);
       for (const event of day.events.slice(0,3)) {
         const category = C.categories[C.eventCategory(event)];
         const line = node('span',`calendar-event category-${C.eventCategory(event)}`,`${category[0]} ${event.place}`);
-        line.title = `${event.time || '시간 미정'} · ${C.timeZones[event.timeZone]} · ${event.place}`; cell.append(line);
+        line.title = `${event.time || '시간 미정'} · ${C.timeZones[event.timeZone]} · ${event.place}`; events.append(line);
       }
-      if (day.events.length>3) cell.append(node('span','calendar-more',`+${day.events.length-3}개 더 보기`));
-      if (day.inTrip && !day.events.length && !day.stays.length) cell.append(node('span','calendar-empty','일정 추가'));
+      if (day.events.length>3) events.append(node('span','calendar-more',`+${day.events.length-3}개 더 보기`));
+      if (day.inTrip && !day.events.length && !day.stays.length) events.append(node('span','calendar-empty','일정 추가'));
       weekNode.append(cell);
       }
       for (const bar of week.bars) {

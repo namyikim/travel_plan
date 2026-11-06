@@ -63,5 +63,9 @@ select{font:inherit;width:100%;padding:12px 14px;border:1px solid var(--line);bo
 .packing-list{list-style:none;padding:0;margin:16px 0;display:grid;gap:10px}.packing-item{display:flex;align-items:center;gap:12px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 14px}
 .packing-check{display:flex;align-items:center;gap:12px;flex:1;min-width:0;margin:0;min-height:44px;cursor:pointer;font-size:14px}.packing-check input{width:20px;height:20px;flex-shrink:0;accent-color:var(--accent)}.packing-check span{overflow-wrap:anywhere}.packing-item.packed .packing-check span{text-decoration:line-through;color:var(--muted)}.packing-item>button{flex-shrink:0}
 
-/* Daily themes sit above the continuous stay bars, with room to wrap on mobile. */
-.calendar-day-theme{position:absolute;top:28px;left:8px;right:8px;color:#225b82;font-size:12px;font-weight:700;line-height:1.5;white-space:normal;overflow-wrap:anywhere;word-break:keep-all;text-align:left}
+/* Shared week rows size headings to their wrapped text instead of a fixed spacer. */
+.calendar-week .calendar-day{display:grid;grid-template-rows:subgrid;row-gap:0;padding:0 5px 5px;align-items:start}
+.calendar-day-heading{grid-row:1;display:block;min-width:0;min-height:28px;padding:6px 3px}
+.calendar-week .calendar-date{position:static;display:block;padding:0;line-height:16px}
+.calendar-day-theme{display:block;margin-top:4px;color:#225b82;font-size:12px;font-weight:700;line-height:1.5;white-space:normal;overflow-wrap:anywhere;word-break:keep-all;text-align:left}
+.calendar-day-events{display:flex;flex-direction:column;gap:5px;min-width:0;padding-top:4px}
