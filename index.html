@@ -35,14 +35,14 @@
         </form>
         <p id="configStatus" class="hint" role="status">연결 정보를 확인하고 있습니다.</p>
         <p id="gateError" class="error" role="alert"></p>
-        <details id="setupDetails" hidden><summary>최초 1회 · 비밀번호 설정</summary>
-          <p class="hint">처음 한 번 토큰과 비밀번호를 설정하면, 다른 기기에서도 비밀번호만으로 열 수 있어요. 연결 정보는 자동 등록됩니다. <a href="https://github.com/namyikim/travel_plan#처음-연결하기" target="_blank" rel="noopener noreferrer">설정 방법 보기 ↗</a></p>
+        <details id="setupDetails"><summary>GitHub 연결 복구 · 최초 설정</summary>
+          <p class="hint">토큰 만료·권한 오류로 로그인할 수 없다면, 새 토큰과 기존 여행 비밀번호를 입력해 연결을 복구하세요. 기존 기록을 확인한 뒤 암호화된 연결 정보만 갱신합니다. 처음 이용할 때도 여기서 설정할 수 있어요. <a href="https://github.com/namyikim/travel_plan#처음-연결하기" target="_blank" rel="noopener noreferrer">설정 방법 보기 ↗</a></p>
           <form id="setupForm">
-            <label for="setupToken">GitHub 토큰 · 최초 1회</label><input id="setupToken" type="password" required autocomplete="off" placeholder="travel_plan · travel-data 접근 권한">
+            <label for="setupToken">GitHub 토큰 · 새 토큰</label><input id="setupToken" type="password" required autocomplete="off" placeholder="travel_plan · travel-data 접근 권한">
             <label for="setupPassword">여행 비밀번호 · 8자 이상</label><input id="setupPassword" type="password" minlength="8" maxlength="1024" required autocomplete="new-password">
             <label for="setupConfirm">비밀번호 확인</label><input id="setupConfirm" type="password" minlength="8" maxlength="1024" required autocomplete="new-password">
             <p class="hint">기존 기록이 있다면 사용하던 비밀번호를 입력하세요. 비밀번호를 잊으면 기록을 복구할 수 없어요.</p>
-            <button type="submit" class="primary wide">비밀번호 설정하고 시작하기</button>
+            <button type="submit" class="primary wide">연결 확인하고 시작하기</button>
           </form>
         </details>
         <p class="security-note">◇ &nbsp; 비밀번호를 아는 사람만 여는 여행노트</p>

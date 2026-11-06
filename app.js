@@ -474,6 +474,7 @@
     run('appError', async () => {
       await loginStore.clear();
       session.lock(true); clearSensitiveDOM();
+      $('setupDetails').hidden = false;
       $('configStatus').textContent = '로그아웃했어요. 비밀번호를 입력해 로그인하세요.';
     });
   }
