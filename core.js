@@ -171,7 +171,8 @@
       .filter(event => event.usdCents != null || event.krw != null)
       .map(event => ({ trip, event })))
       .sort((a, b) => compareEvents(a.event, b.event) || a.trip.id.localeCompare(b.trip.id));
-    return { items, totals: tripCosts({ events: items.map(item => item.event) }) };
+    const events = items.map(item => item.event);
+    return { items, totals: tripCosts({ events }), paidTotals: tripCosts({ events: events.filter(event => event.paid) }), unpaidTotals: tripCosts({ events: events.filter(event => !event.paid) }) };
   }
   function validateMapLocation(value) {
     if (value === undefined || value === null) return null;

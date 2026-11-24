@@ -57,7 +57,7 @@ select{font:inherit;width:100%;padding:12px 14px;border:1px solid var(--line);bo
 .expense-table tfoot{background:var(--surface-blue);color:var(--accent);font-weight:750}
 .expense-table tfoot th,.expense-table tfoot td{border-bottom:0}
 
-.expense-rate{margin:18px 0 24px}.expense-rate .actions{flex-wrap:wrap}.expense-rate input{max-width:220px}.expense-rate label{margin-top:0}.expense-rate .hint{margin:8px 0}.expense-grand-total{font-size:16px}.expense-grand-total th,.expense-grand-total td{border-top:2px solid var(--line)}.expense-grand-total .expense-amount{white-space:normal;overflow-wrap:anywhere}
+.expense-rate{margin:18px 0 24px}.expense-rate .actions{flex-wrap:wrap}.expense-rate input{max-width:220px}.expense-rate label{margin-top:0}.expense-rate .hint{margin:8px 0}.expense-grand-total{font-size:16px}.expense-grand-total th,.expense-grand-total td{border-top:2px solid var(--line)}.expense-grand-total .expense-amount{white-space:normal;overflow-wrap:anywhere}.expense-split{font-weight:650}.expense-split .expense-amount{white-space:normal;overflow-wrap:anywhere}.expense-split .expense-amount span,.expense-split .expense-amount small{display:block}.expense-split .expense-amount small{font-weight:400;margin-top:2px}
 
 #packingBtn{text-align:left;margin-top:0;margin-bottom:24px}#packingBtn[aria-pressed="true"]{background:#2463d4;color:white}
 .packing-form{margin:20px 0 24px}.packing-add{display:flex;gap:10px}.packing-add input{flex:1;min-width:0}.packing-add button{flex-shrink:0}.packing-form .error{margin:8px 0}

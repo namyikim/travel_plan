@@ -30,7 +30,7 @@ test('expenses sort across trips by actual instant, respecting local time zones'
 });
 
 test('empty expenses show zero totals, and edits and deletions recalculate totals', () => {
-  assert.deepEqual(C.expenseSummary({ trips: [] }), { items: [], totals: { usdCents: 0, krw: 0 } });
+  assert.deepEqual(C.expenseSummary({ trips: [] }), { items: [], totals: { usdCents: 0, krw: 0 }, paidTotals: { usdCents: 0, krw: 0 }, unpaidTotals: { usdCents: 0, krw: 0 } });
   const trip = { id: 'a', events: [event('paid', { krw: 100 })] };
   trip.events[0].krw = 200;
   assert.equal(C.expenseSummary({ trips: [trip] }).totals.krw, 200);
@@ -56,7 +56,7 @@ test('expense rendering keeps currencies separate and clears stale rows and tota
     addEventListener(type, listener) { this['on' + type] = listener; },
     replaceChildren(...children) { this.children = children; }
   });
-  const elements = Object.fromEntries(['expenseCount', 'expenseEmpty', 'expenseList', 'expenseTotalKRW', 'expenseTotalUSD', 'expenseRate', 'expenseConvertedTotal'].map(id => [id, node('div')]));
+  const elements = Object.fromEntries(['expenseCount', 'expenseEmpty', 'expenseList', 'expenseTotalKRW', 'expenseTotalUSD', 'expenseRate', 'expenseConvertedTotal', 'expensePaidTotal', 'expenseUnpaidTotal'].map(id => [id, node('div')]));
   elements.expenseRate.value = '1400';
   const updates = []; let changed = 0;
   const context = vm.createContext({ C, node, $: id => elements[id], money: (value, currency) => `${currency} ${value}`, pending: false,
@@ -80,6 +80,8 @@ test('expense rendering keeps currencies separate and clears stale rows and tota
   assert.equal(elements.expenseList.children[0].className, 'expense-paid');
   assert.equal(elements.expenseList.children[0].children[4].children[0].children[0].checked, true);
   assert.match(elements.expenseCount.textContent, /카드 결제 완료 1건/);
+  assert.deepEqual(elements.expensePaidTotal.children.map(child => child.textContent), ['KRW 172830', 'KRW 0 + USD 123.45']);
+  assert.deepEqual(elements.expenseUnpaidTotal.children.map(child => child.textContent), ['KRW 0', 'KRW 0 + USD 0']);
   assert.equal(row.children[1].textContent, 'meal');
   assert.equal(row.children[2].textContent, 'KRW 0');
   assert.equal(row.children[3].textContent, 'USD 123.45');
@@ -146,4 +148,13 @@ test('paid flag defaults to false for older data and rejects non-boolean values'
   assert.equal(C.validateEvent(event('old', { ...full, krw: 100 }), trip).paid, false);
   assert.equal(C.validateEvent(event('done', { ...full, krw: 100, paid: true }), trip).paid, true);
   assert.throws(() => C.validateEvent(event('bad', { ...full, krw: 100, paid: 'yes' }), trip), /카드 결제 여부/);
+});
+
+test('expense summary splits totals into paid and unpaid amounts', () => {
+  const { totals, paidTotals, unpaidTotals } = C.expenseSummary({ trips: [{ id: 'a', events: [
+    event('hotel', { usdCents: 50000, krw: 1000, paid: true }), event('car', { usdCents: 2500 }), event('meal', { krw: 30000, paid: false })
+  ] }] });
+  assert.deepEqual(paidTotals, { usdCents: 50000, krw: 1000 });
+  assert.deepEqual(unpaidTotals, { usdCents: 2500, krw: 30000 });
+  assert.deepEqual(totals, { usdCents: 52500, krw: 31000 });
 });

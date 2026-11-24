@@ -217,7 +217,7 @@
     } catch (error) { $('packingFormError').textContent = error.message; }
   });
   function renderExpenses(data) {
-    const { items, totals } = C.expenseSummary(data);
+    const summary = C.expenseSummary(data), { items, totals } = summary;
     $('expenseCount').textContent = `금액이 입력된 일정 ${items.length}건 · 카드 결제 완료 ${items.filter(({ event }) => event.paid).length}건 · 실제 시간순`;
     $('expenseEmpty').hidden = items.length > 0;
     $('expenseList').replaceChildren();
@@ -242,14 +242,19 @@
     }
     $('expenseTotalKRW').textContent = money(totals.krw, 'KRW');
     $('expenseTotalUSD').textContent = money(totals.usdCents / 100, 'USD');
-    renderExpenseTotal(totals);
+    renderExpenseTotal(totals, summary);
   }
-  function renderExpenseTotal(totals = C.expenseSummary(session.snapshot().data).totals) {
-    try {
-      const total = totals.usdCents === 0 ? totals.krw : C.expenseTotalKRW(totals, $('expenseRate').value);
-      $('expenseConvertedTotal').textContent = money(total, 'KRW');
-    } catch (error) {
-      $('expenseConvertedTotal').textContent = $('expenseRate').value ? error.message : '환율을 입력해 주세요.';
+  function renderExpenseTotal(totals, split) {
+    if (!totals) { split = C.expenseSummary(session.snapshot().data); totals = split.totals; }
+    const converted = amounts => {
+      try { return money(amounts.usdCents === 0 ? amounts.krw : C.expenseTotalKRW(amounts, $('expenseRate').value), 'KRW'); }
+      catch (error) { return $('expenseRate').value ? error.message : '환율을 입력해 주세요.'; }
+    };
+    $('expenseConvertedTotal').textContent = converted(totals);
+    if (!split) return;
+    // Paid and unpaid are converted separately, so their sum can differ from the total by 1 won of rounding.
+    for (const [id, amounts] of [['expensePaidTotal', split.paidTotals], ['expenseUnpaidTotal', split.unpaidTotals]]) {
+      $(id).replaceChildren(node('span', '', converted(amounts)), node('small', 'muted', `${money(amounts.krw, 'KRW')} + ${money(amounts.usdCents / 100, 'USD')}`));
     }
   }
   async function loadExpenseRate() {
@@ -461,7 +466,7 @@
     $('packingForm').reset();
     for (const id of ['packingList', 'packingCount', 'packingFormError']) $(id).replaceChildren();
     ++expenseRateVersion; expenseRateAttempted = false; $('expenseRate').value = '';
-    $('expenseRateStatus').replaceChildren(); $('expenseConvertedTotal').replaceChildren();
+    $('expenseRateStatus').replaceChildren(); $('expenseConvertedTotal').replaceChildren(); $('expensePaidTotal').replaceChildren(); $('expenseUnpaidTotal').replaceChildren();
     weatherView.clear();
     placeImages.clear();$('historyResult').replaceChildren();$('historySelect').replaceChildren();$('historySearch').value='트로피컬';
     restaurantMap.clear(); mapView.clear(); detailView='list'; $('mapDateLabel').textContent='';
