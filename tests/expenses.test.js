@@ -52,15 +52,34 @@ test('expense rendering keeps currencies separate and clears stale rows and tota
   const source = fs.readFileSync(require('node:path').join(__dirname, '../app.js'), 'utf8');
   const node = (tag, className, textContent) => ({ tag, className, textContent, children: [],
     append(...children) { this.children.push(...children); },
+    setAttribute(name, value) { this[name] = value; },
+    addEventListener(type, listener) { this['on' + type] = listener; },
     replaceChildren(...children) { this.children = children; }
   });
   const elements = Object.fromEntries(['expenseCount', 'expenseEmpty', 'expenseList', 'expenseTotalKRW', 'expenseTotalUSD', 'expenseRate', 'expenseConvertedTotal'].map(id => [id, node('div')]));
   elements.expenseRate.value = '1400';
-  const context = vm.createContext({ C, node, $: id => elements[id], money: (value, currency) => `${currency} ${value}` });
+  const updates = []; let changed = 0;
+  const context = vm.createContext({ C, node, $: id => elements[id], money: (value, currency) => `${currency} ${value}`, pending: false,
+    session: { update: fn => updates.push(fn) }, markChanged: () => changed++ });
   vm.runInContext(source.slice(source.indexOf('  function renderExpenses('), source.indexOf('  async function loadExpenseRate(')), context);
-  context.renderExpenses({ trips: [{ id: 'a', title: '<여행>', events: [event('meal', { krw: 0, usdCents: 12345 })] }] });
+  const full = { transport: '', lodging: '', note: '', url: '' };
+  const stored = { version: 1, trips: [{ id: 'a', title: '<여행>', destination: '하와이', people: 2, start: '2027-02-12', end: '2027-02-12', events: [event('meal', { ...full, krw: 0, usdCents: 12345 })] }] };
+  context.renderExpenses(stored);
   const row = elements.expenseList.children[0];
-  assert.equal(row.children.length, 4);
+  assert.equal(row.children.length, 5);
+  const checkbox = row.children[4].children[0].children[0];
+  assert.equal(checkbox.type, 'checkbox');
+  assert.equal(checkbox.checked, false);
+  assert.match(elements.expenseCount.textContent, /카드 결제 완료 0건/);
+  checkbox.checked = true; checkbox.onchange();
+  assert.equal(changed, 1);
+  const saved = updates[0](stored);
+  assert.equal(saved.trips[0].events[0].paid, true);
+  assert.equal(stored.trips[0].events[0].paid, undefined);
+  context.renderExpenses(saved);
+  assert.equal(elements.expenseList.children[0].className, 'expense-paid');
+  assert.equal(elements.expenseList.children[0].children[4].children[0].children[0].checked, true);
+  assert.match(elements.expenseCount.textContent, /카드 결제 완료 1건/);
   assert.equal(row.children[1].textContent, 'meal');
   assert.equal(row.children[2].textContent, 'KRW 0');
   assert.equal(row.children[3].textContent, 'USD 123.45');
@@ -119,4 +138,12 @@ test('rate loading applies dated rates, preserves manual input and handles netwo
   context.fetch = async () => ({ok:true, json:async()=>({base: 'USD', quote: 'KRW', date:'invalid',rate:1400})});
   await context.loadExpenseRate();
   assert.equal(elements.expenseRate.value, '1500');
+});
+
+test('paid flag defaults to false for older data and rejects non-boolean values', () => {
+  const trip = { id: 'a', title: '여행', start: '2027-02-12', end: '2027-02-12', events: [] };
+  const full = { transport: '', lodging: '', note: '', url: '' };
+  assert.equal(C.validateEvent(event('old', { ...full, krw: 100 }), trip).paid, false);
+  assert.equal(C.validateEvent(event('done', { ...full, krw: 100, paid: true }), trip).paid, true);
+  assert.throws(() => C.validateEvent(event('bad', { ...full, krw: 100, paid: 'yes' }), trip), /카드 결제 여부/);
 });

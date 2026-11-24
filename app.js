@@ -218,17 +218,26 @@
   });
   function renderExpenses(data) {
     const { items, totals } = C.expenseSummary(data);
-    $('expenseCount').textContent = `금액이 입력된 일정 ${items.length}건 · 실제 시간순`;
+    $('expenseCount').textContent = `금액이 입력된 일정 ${items.length}건 · 카드 결제 완료 ${items.filter(({ event }) => event.paid).length}건 · 실제 시간순`;
     $('expenseEmpty').hidden = items.length > 0;
     $('expenseList').replaceChildren();
-    for (const { event } of items) {
-      const row = node('tr');
+    for (const { trip, event } of items) {
+      const row = node('tr', event.paid ? 'expense-paid' : '');
       const date = node('td', 'expense-date');
       date.append(node('span', '', `${event.date} · ${event.time || '시간 미정'}`), node('small', 'muted', C.timeZones[event.timeZone]));
       const place = node('th', '', event.place); place.scope = 'row';
       row.append(date, place,
         node('td', 'expense-amount', event.krw == null ? '—' : money(event.krw, 'KRW')),
         node('td', 'expense-amount', event.usdCents == null ? '—' : money(event.usdCents / 100, 'USD')));
+      const paidCell = node('td', 'expense-check'), paidLabel = node('label'), checkbox = node('input');
+      checkbox.type = 'checkbox'; checkbox.checked = !!event.paid; checkbox.disabled = pending;
+      checkbox.setAttribute('aria-label', `${event.place} 카드 결제 완료`);
+      checkbox.addEventListener('change', () => {
+        if (pending) { checkbox.checked = !!event.paid; return; }
+        session.update(current => C.upsertEvent(current, trip.id, { ...event, paid: checkbox.checked }));
+        markChanged();
+      });
+      paidLabel.append(checkbox); paidCell.append(paidLabel); row.append(paidCell);
       $('expenseList').append(row);
     }
     $('expenseTotalKRW').textContent = money(totals.krw, 'KRW');
@@ -519,7 +528,7 @@
     event.preventDefault(); if (pending) return;
     try {
       const previousEvent = tripNow()?.events.find(item => item.id === $('eventId').value);
-      const input = { mapLocation: previousEvent?.place === $('eventPlace').value.trim() ? previousEvent.mapLocation : null, travelFromId: previousEvent?.travelFromId ?? null, travelMinutes: previousEvent?.travelMinutes ?? null, id: $('eventId').value || crypto.randomUUID(), date: $('eventDate').value, time: $('eventTime').value, category: $('eventCategory').value, timeZone: $('eventTimeZone').value, timeOccurrence: $('eventTimeOccurrence').value, place: $('eventPlace').value, transport: $('eventTransport').value, lodging: $('eventLodging').value, note: $('eventNote').value, url: $('eventUrl').value, imageUrl:$('eventImageUrl').value, imageLink:$('eventImageLink').value, usdCents: C.parseMoney($('eventUSD').value, 'USD'), krw: C.parseMoney($('eventKRW').value, 'KRW') };
+      const input = { mapLocation: previousEvent?.place === $('eventPlace').value.trim() ? previousEvent.mapLocation : null, travelFromId: previousEvent?.travelFromId ?? null, travelMinutes: previousEvent?.travelMinutes ?? null, paid: previousEvent?.paid ?? false, id: $('eventId').value || crypto.randomUUID(), date: $('eventDate').value, time: $('eventTime').value, category: $('eventCategory').value, timeZone: $('eventTimeZone').value, timeOccurrence: $('eventTimeOccurrence').value, place: $('eventPlace').value, transport: $('eventTransport').value, lodging: $('eventLodging').value, note: $('eventNote').value, url: $('eventUrl').value, imageUrl:$('eventImageUrl').value, imageLink:$('eventImageLink').value, usdCents: C.parseMoney($('eventUSD').value, 'USD'), krw: C.parseMoney($('eventKRW').value, 'KRW') };
       session.update(data => C.upsertEvent(data, selectedTrip, input));
       selectedDate = input.date; calendarMonth = input.date.slice(0,7); draft = false; $('eventDialog').close(); markChanged();
     } catch (error) { $('eventFormError').textContent = error.message; }
